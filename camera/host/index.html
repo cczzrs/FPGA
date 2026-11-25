@@ -1,0 +1,1632 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OV9281 网页相机</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2330; --mute:#667085; --line:#e3e6eb; --acc:#2463eb; --ok:#14804a; --bad:#c0362c; --warn:#a15c00; --chip:#eef1f6; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#14161b; --card:#1d2027; --fg:#e7e9ee; --mute:#9aa3b2; --line:#2c313b; --acc:#6b9bff; --ok:#46c37b; --bad:#ff7a6e; --warn:#e0a54a; --chip:#262a33; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.55 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:10px; align-items:center; flex-wrap:wrap; position:sticky; top:0; background:var(--bg); z-index:2; }
+  h1 { font-size:18px; margin:0 8px 0 0; }
+  .pill { padding:1px 10px; border-radius:99px; border:1px solid var(--line); color:var(--mute); font-size:13px; }
+  .pill.ok { color:var(--ok); border-color:var(--ok); } .pill.bad { color:var(--bad); border-color:var(--bad); }
+  main { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; padding:16px; max-width:1360px; margin:0 auto; }
+  @media (max-width: 560px) { main { padding:16px 16px; } }
+  .full { grid-column:1/-1; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; min-width:0; }
+  .card h2 { font-size:15px; margin:0 0 4px; }
+  .card > .intro { color:var(--mute); font-size:12.5px; margin:0 0 10px; }
+  h3 { font-size:13px; margin:14px 0 6px; color:var(--mute); font-weight:600; border-top:1px solid var(--line); padding-top:10px; }
+  #vbox { background:#000; border-radius:6px; overflow:auto; display:flex; justify-content:center; min-height:120px; }
+  #view { display:block; max-width:100%; height:auto; image-rendering:pixelated; }
+  #vbox.native { justify-content:flex-start; }
+  #vbox.native #view { max-width:none; }
+  #hist { display:block; width:100%; height:80px; background:var(--chip); border-radius:6px; cursor:crosshair; touch-action:none; margin-top:4px; }
+  .tone .k { font-weight:600; }
+  .tone input[type=number] { width:64px; }
+  .tone input[type=range] { width:120px; vertical-align:middle; }
+  .strip { display:flex; gap:4px; flex-wrap:wrap; margin:8px 0 0; }
+  .strip button { padding:2px 8px; min-width:34px; font-size:12px; }
+  .strip button.on { outline:2px solid var(--fg); }
+  .sum { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px; margin:6px 0 10px; }
+  .sum div { background:var(--chip); border-radius:6px; padding:6px 10px; }
+  .sum b { display:block; font-size:16px; font-family:ui-monospace, Menlo, monospace; }
+  .sum span { color:var(--mute); font-size:12px; }
+  tr.sel td { background:var(--chip); }
+  tr.click { cursor:pointer; }
+  progress { width:100%; height:8px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
+  button.sec { background:transparent; color:var(--fg); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  input, select { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 7px; font:inherit; width:90px; }
+  input[type=checkbox] { width:auto; }
+  label { color:var(--fg); }
+  .set { display:grid; grid-template-columns:170px minmax(0,1fr); gap:4px 12px; padding:7px 0; border-bottom:1px solid var(--line); align-items:start; }
+  .set:last-child { border-bottom:0; }
+  .set .k { font-weight:600; }
+  .set .k small { display:block; font-weight:400; color:var(--mute); font-family:ui-monospace, Menlo, monospace; font-size:11.5px; }
+  .set .c { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .set .d { grid-column:2; color:var(--mute); font-size:12.5px; }
+  @media (max-width: 560px) { .set { grid-template-columns:1fr; } .set .d { grid-column:1; } }
+  .tw { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--mute); font-weight:600; font-size:12px; padding:4px 8px 4px 0; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td { padding:5px 8px 5px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+  td.v { font-family:ui-monospace, Menlo, monospace; white-space:nowrap; }
+  td.m { font-weight:600; white-space:nowrap; }
+  td.x { color:var(--mute); font-size:12.5px; }
+  .tag { display:inline-block; font-size:11px; padding:0 6px; border-radius:4px; background:var(--chip); color:var(--mute); margin-left:4px; }
+  .tag.warn { color:var(--warn); }
+  .good { color:var(--ok); } .badt { color:var(--bad); }
+  #log { height:200px; overflow:auto; font:12px/1.5 ui-monospace, Menlo, monospace; white-space:pre-wrap; color:var(--mute); }
+  .meta { color:var(--mute); font-size:12px; margin-top:6px; }
+  .src { color:var(--mute); font-size:12px; margin-top:8px; }
+  h4.hd { font-size:13px; margin:14px 0 6px; padding-top:10px; border-top:1px solid var(--line); }
+  h4.hd small { font-weight:400; color:var(--mute); margin-left:6px; }
+  .hdbar { position:relative; display:flex; height:16px; background:var(--chip); border-radius:4px; overflow:hidden; margin:6px 0 2px; }
+  .hdbar div { height:100%; }
+  .hdbar i { position:absolute; top:0; bottom:0; left:95%; width:2px; background:var(--fg); }
+  .bkgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
+  .bkc { border:1px solid var(--line); border-radius:8px; padding:6px; font-size:12px; }
+  .bkc canvas { display:block; width:100%; background:#000; border-radius:4px; margin:4px 0; }
+  .bkc b { font-size:13px; }
+  .bkc .row { margin:4px 0 0; gap:4px; }
+  .bkc button { padding:2px 8px; font-size:12px; }
+  .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+  #hdSteps tr.ok td { background:color-mix(in srgb, var(--ok) 12%, transparent); }
+  .ord { display:flex; gap:6px; align-items:center; background:var(--chip); border-radius:6px; padding:3px 8px; margin:3px 0; cursor:grab; font-size:12.5px; }
+  .ord b { font-family:ui-monospace, Menlo, monospace; min-width:28px; }
+  .ord span { flex:1; }
+  .ord button { padding:1px 8px; font-size:12px; }
+  .ord.over { outline:2px dashed var(--acc); }
+  .tabs { display:flex; gap:2px; flex-wrap:wrap; border-bottom:1px solid var(--line); margin:-4px 0 12px; }
+  .tabs button { background:transparent; color:var(--mute); border-radius:6px 6px 0 0; padding:7px 14px; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tabs button.on { color:var(--acc); border-bottom-color:var(--acc); font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>OV9281 网页相机 · Icepi Zero</h1>
+  <span id="conn" class="pill">串口</span>
+  <span id="chip" class="pill">相机未识别</span>
+  <span id="clk" class="pill">MIPI 时钟 —</span>
+  <span id="fps" class="pill">帧率 —</span>
+  <span id="busy" class="pill">空闲</span>
+</header>
+<main>
+  <!-- ================================================================ 画面（始终在最上方） -->
+  <section class="card">
+    <div id="vbox"><canvas id="view"></canvas></div>
+    <div class="meta" id="fmeta">还没有帧</div>
+    <progress id="prog" max="1" value="0"></progress>
+    <nav class="tabs" id="ctabs" style="margin-top:6px">
+      <button data-t="shot">单拍 / 连拍</button>
+      <button data-t="hdr">两档曝光合成</button>
+      <button data-t="hd">高动态</button>
+      <button data-t="chdr">Claude 高动态</button>
+      <button data-t="hist">历史图像</button>
+    </nav>
+    <div class="cp" id="cp-shot" hidden>
+      <div class="row"><button id="shot1">单拍 1 帧</button><button id="shot20">连拍 20 帧</button></div>
+    </div>
+    <div class="cp" id="cp-hdr" hidden>
+      <div class="row">
+        <label>长 <input id="hdrL" type="number" step="0.1" min="0.05" max="10000" value="15" style="width:72px"> ms</label>
+        <label>短 <input id="hdrS" type="number" step="0.05" min="0.02" value="0.3" style="width:64px"> ms</label>
+        <button id="shotHdr">两档曝光合成</button>
+      </div>
+    </div>
+    <div class="cp" id="cp-hd" hidden>
+      <div class="row">
+        <button id="hdStep">单步拍摄</button>
+        <label>下一拍 <input id="hdE" type="number" step="any" min="0.02" max="10000" value="0.02" style="width:80px"> ms</label>
+        <button class="sec" id="hdReset">新建会话</button>
+        <label>会话 <select id="hdSess" style="width:auto;max-width:340px"></select></label>
+      </div>
+      <div class="hdbar" id="hdBar"></div>
+      <div class="meta" id="hdInfo">还没有高动态会话。点"单步拍摄"开始。</div>
+
+      <h4 class="hd">① 每一拍 <small>点一行在上方看这一帧原图；绿色行是合格的一拍，生成一个有效像素块</small></h4>
+      <div class="tw"><table id="hdSteps"><thead><tr><th>拍</th><th>找</th><th>请求 ms</th><th>实际 ms</th><th>最高值</th><th>满爆（占比）</th><th>阈值 BBB</th><th>黄线范围</th><th>结果</th><th>下一拍 ms</th></tr></thead><tbody></tbody></table></div>
+
+      <h4 class="hd">② 有效像素块 <small>缩略图只画块内像素（按该块原始值范围拉伸到全灰度，满爆为白，块外为黑）；色块是它在覆盖图里的颜色</small></h4>
+      <div class="bkgrid" id="hdCards"></div>
+
+      <h4 class="hd">③ 对比查看 <small>结果显示在上方大图</small></h4>
+      <div class="row">
+        <button class="sec" id="hdCovBtn">覆盖图</button>
+        <span class="meta">每个像素按"第一个覆盖它的块"上色，黑色 = 还没被任何块覆盖</span>
+      </div>
+      <div class="row">
+        <span class="k">合成</span>
+        <button class="sec" id="lyBk">全部用有效像素</button>
+        <button class="sec" id="lyImg">全部用整幅图像</button>
+        <button class="sec" id="lyUp">按曝光升序</button>
+        <button class="sec" id="lyDown">按曝光降序</button>
+        <button class="sec" id="lyNone">清空</button>
+      </div>
+      <div class="meta">在块卡片上点"+有效像素""+整幅"加入一层；次序靠前的优先，拖动整行或点 ↑↓ 调整；所有层都没有值的位置涂蓝。</div>
+      <div id="hdLayers"></div>
+    </div>
+    <div class="cp" id="cp-chdr" hidden>
+      <div class="meta">由 Claude 设计：自动定一组曝光（相邻约 2 档），用相邻帧实测黑电平、曝光比和噪声，按逆方差合成线性辐射度图，再用保边滤波分层做局部色调映射，亮处和暗处的细节同时看清；暗处按信噪比自动降噪，不把噪声当细节放大。场景和相机要静止。</div>
+      <div class="row">
+        <button id="chGo">开始拍摄</button>
+        <button class="sec" id="chStopB" disabled>停止</button>
+        <label>起始 <input id="chE0" type="number" step="any" min="0.02" value="4" style="width:70px"> ms</label>
+        <label>最长 <input id="chEmax" type="number" step="any" min="0.1" max="10000" value="2000" style="width:80px"> ms</label>
+        <label>最多 <input id="chN" type="number" min="2" max="12" value="7" style="width:56px"> 帧</label>
+        <label title="室内灯光（50 Hz 电网）亮度每 10 ms 起伏一次；曝光取 10 ms 的整数倍时每帧收到的光一样多，合成更准"><input type="checkbox" id="chFlk" checked> 避开灯光闪烁（≥ 10 ms 的曝光取 10 ms 整数倍）</label>
+        <span class="meta">每帧约 10 秒 + 3 倍曝光时间</span>
+      </div>
+      <div class="row">
+        <label>会话 <select id="chSess" style="width:auto;max-width:340px"></select></label>
+        <button class="sec" id="chFromHd">用"高动态"会话拍过的帧合成</button>
+      </div>
+      <div class="meta" id="chInfo">还没有会话。点"开始拍摄"，或用"高动态"会话拍过的帧合成。</div>
+
+      <h4 class="hd">① 曝光序列 <small>按曝光从短到长；色块是它在"来源"视图里的颜色；"相对曝光"是与上一帧的实测曝光比</small></h4>
+      <div class="tw"><table id="chFrames"><thead><tr><th>帧</th><th>作用</th><th>曝光 ms</th><th>相对曝光</th><th>饱和</th><th>暗部不足</th><th>曝光合适</th><th>信噪比 ≥ 10</th><th>主要贡献</th><th>文件</th></tr></thead><tbody></tbody></table></div>
+
+      <h4 class="hd">② 合成质量 <small>全部由图像实测得出；后五项是显示效果的客观指标，括号里是最好的单帧</small></h4>
+      <div class="sum" id="chStats"></div>
+
+      <h4 class="hd">③ 查看与调节 <small>结果显示在上方大图</small></h4>
+      <div class="row" id="chViews">
+        <button class="sec" data-v="res">结果</button>
+        <button class="sec" data-v="cmp">对比（拖动分界线）</button>
+        <button class="sec" data-v="rad">辐射度</button>
+        <button class="sec" data-v="src">来源</button>
+        <button class="sec" data-v="snr">信噪比</button>
+      </div>
+      <div class="row tone" id="chSliders"></div>
+      <div class="meta">暗部提亮：只抬大块明暗里偏暗的部分（最亮处不变），暗处的纹理跟着变亮、更容易看清，0 = 不抬。压缩到：大块明暗压进几档的显示范围（直方图调整：像素多的亮度段分得多；越小越亮越"平"、细节越显眼）。细节、微纹理：放大倍数。降噪：信噪比低于它的地方，微纹理按比例减弱（0 = 不减）。尺度：多大的明暗起伏算"大块"。保边：多强的亮暗边缘不被抹平。亮度：整体加减曝光。</div>
+      <div class="row">
+        <button class="sec" id="chAutoB">自动调参</button>
+        <button class="sec" id="chReset">参数复位</button>
+        <button class="sec" id="chDl">下载结果 PNG</button>
+        <button class="sec" id="chUp">保存到 captures（结果 + 辐射度 TIFF）</button>
+      </div>
+    </div>
+    <div class="cp" id="cp-hist" hidden>
+      <div class="row">
+        <button class="sec" id="histRef">刷新列表</button>
+        <label>筛选 <input id="histQ" placeholder="文件名包含" style="width:160px"></label>
+        <span class="meta" id="histInfo"></span>
+      </div>
+      <div id="histList" style="max-height:320px;overflow:auto"></div>
+    </div>
+    <div class="strip" id="strip"></div>
+    <div class="row">
+      <label><input type="checkbox" id="native"> 1:1 原始像素</label>
+      <a id="dl" download="ov9281.png"><button class="sec">下载这一帧</button></a>
+      <span class="meta" id="pmeta"></span>
+    </div>
+  </section>
+
+  <!-- ================================================================ 按功能分的标签页 -->
+  <section class="card">
+    <nav class="tabs" id="tabs">
+      <button data-t="disp">显示与直方图</button>
+      <button data-t="time">拍摄与计时</button>
+      <button data-t="fpga">FPGA 接收状态</button>
+      <button data-t="reg">寄存器状态</button>
+      <button data-t="set">设置</button>
+      <button data-t="log">日志</button>
+    </nav>
+    <div class="tp" id="tp-disp" hidden>
+        <div class="row tone">
+          <span class="k">原始值范围</span>
+          <label>下限 <input id="vLo" type="number" min="0" max="1023" value="0"></label>
+          <label>上限 <input id="vHi" type="number" min="0" max="1023" value="1023"></label>
+          <label><input type="checkbox" id="vStretch" checked> 选中范围拉伸到全灰度</label>
+          <button class="sec" id="vAll">全部</button>
+          <span class="meta" id="vInfo"></span>
+        </div>
+        <canvas id="hist" height="80"></canvas>
+        <div class="row tone">
+          <span class="k">红线（稀疏段）</span>
+          <label>起始 <input id="spN" type="number" min="2" step="1" value="100" style="width:70px"> 箱</label>
+          <label>倍数 <input id="spK" type="number" min="1" step="0.1" value="3" style="width:64px"></label>
+          <label>黄线倍数 <input id="spY" type="number" min="0.1" step="0.5" value="4" style="width:64px"></label>
+          <label>拉伸到 x <input id="stX" type="number" min="0" step="1" value="0" style="width:70px"></label>
+          <button class="sec" id="stBtn">显示黄线拉伸后的图</button>
+          <label title="勾上后，「高动态」之后生成的有效像素块都按当时的 x 做黄线拉伸（左头 &gt; x 才拉）；已生成的块不变"><input type="checkbox" id="stApply"> 应用到之后的有效像素块</label>
+          <span class="meta">从右往左逐箱看（跳过空箱和最右边那一箱），每箱的差异值 = 与上一箱像素数之差的绝对值：前"起始"箱直接算进，之后每箱的差异值不能超过前面所有已算进箱的平均差异值 ×"倍数"，第一个超过的箱处停止；红线高度 = 这些箱的平均差异值。黄线 = 红线范围最高值 ×"黄线倍数"（"高动态"按黄线范围取有效像素）。黄线拉伸：黄线左头的原始值 > x 时，把黄线覆盖的原始值从左向右均匀拉伸，左头移到 x、右头不动；左头以下的值按比例压到 0～x，右头以上不变。只改显示，再点一次还原。勾"应用到之后的有效像素块"时，"高动态"之后生成的块按当时的 x 拉伸块内的值。</span>
+        </div>
+        <div class="meta">直方图横轴是原始值（RAW10 为 0～1023，RAW8 为 0～255），纵轴是像素数（对数刻度）。在直方图上按住拖动即可选范围，也可直接填下限、上限。只显示原始值落在范围内的像素，范围外的像素涂成蓝色。勾"拉伸"时，选中范围的下限显示为黑、上限显示为白，范围内相差 1 的原始值在屏幕上也拉开，细节最多；不勾则按原亮度显示。只改屏幕显示，不改原始数据和 PNG 文件。</div>
+        <div class="row tone">
+          <span class="k">显示调整</span>
+          <label>暗部提升 <input id="rL" type="range" min="0" max="100" value="0"> <span id="rLv" class="meta"></span></label>
+          <label>亮部压低 <input id="rH" type="range" min="0" max="100" value="0"> <span id="rHv" class="meta"></span></label>
+          <label>暗部阈值 <input id="tL" type="number" min="0" max="255" value="96"></label>
+          <label>亮部阈值 <input id="tH" type="number" min="0" max="255" value="160"></label>
+          <label>区域半径 <input id="rad" type="number" min="2" max="200" value="40"> 像素</label>
+          <button class="sec" id="toneReset">复位</button>
+          <span class="meta" id="toneMap"></span>
+        </div>
+        <div class="meta">只改屏幕显示，不改原始数据和存下的 PNG 文件。先算每个像素周围一片区域（区域半径）的平均亮度 m。m 低于暗部阈值 L 的地方，整片加上 (L − m) × 暗部提升比例；m 高于亮部阈值 H 的地方，整片减去 (m − H) × 亮部压低比例。同一片区域里的像素一起平移，相互之间的灰度差（细节）不变，只是被挪到屏幕更容易分辨的中间灰度。比例 0% = 不调整，100% = 把区域平均亮度正好拉到阈值。区域半径决定"细节"的尺度：比它小的纹理保留，比它大的明暗起伏被拉平；太小会让画面发灰，太大会在亮暗交界处出现光晕。原始值已经是 0 或 255 的像素（死黑、过曝）本身没有细节，调整也找不回来。</div>
+    </div>
+    <div class="tp" id="tp-time" hidden>
+        <p class="intro" style="margin-top:8px">板上按键 0 = 单拍 1 帧，按键 1 = 连拍 20 帧（LPF 里的 button[0]、button[1]）。连拍存的是相机连续输出的 20 个相邻帧，全部先写进板上 SDRAM（每帧一个 800 行的槽，共用 20 个槽，约 32 MB 中的 31 MB），再逐行原样传回：不缩放、不改动任何像素。图像按原始像素显示，框比图窄时整幅等比缩小以完整显示；勾"1:1 原始像素"则一个图像像素对应一个屏幕像素，可滚动。每帧存成无损 PNG，放在项目的 captures/ 目录。连续单拍：一次传完立刻再拍一帧，中间的帧跳过。两档曝光合成：先按"长"曝光抓 1 帧、再按"短"曝光抓 1 帧，两帧都先存进 SDRAM（相隔约 0.6 秒），再一起传回（约 13 秒）。长曝光最长 10000 ms：超过当前帧长允许的值时，程序先自动加大帧长 VTS，不够再加大行长 HTS，改完等 2 帧让新设置生效再抓，拍完恢复原设置；长曝光 1 秒以上时，整个过程约为 3 倍长曝光时间加 15 秒；电脑用两帧都没饱和的像素实测曝光比和黑电平，长曝光接近饱和（≥800）的地方换用"短曝光值 × 曝光比"，存成 16 位线性合成图（文件名 _HDR.png），两张原始帧原样保留。合成图用上方"原始值范围"挑一段看：选低段看暗部（来自长曝光），选高段看过曝处的细节（来自短曝光）。场景里有东西在动时，两帧对不齐，合成处会有重影。</p>
+        <p class="intro">"开始"和"写完"由 FPGA 用 1 µs 计数器记录，起点是 FPGA 收到触发（按键消抖后或收到网页命令）的时刻。开始 = 收到这一帧的帧开始包 FS，也就是传感器开始发送这一帧；写完 = 这一帧最后一个像素写进 SDRAM。传回用时由电脑计时：从上一帧收完（第 0 帧从收到帧头算）到这一帧最后一行收完。点表格的一行查看那一帧。</p>
+        <div class="sum" id="sum"></div>
+        <div class="tw"><table id="ftab"><thead><tr><th>帧</th><th>开始 ms</th><th>写完 ms</th><th>写入用时 ms</th><th>与上一帧间隔 ms</th><th>传回用时 s</th><th>行数</th><th>数据</th><th>文件</th></tr></thead><tbody></tbody></table></div>
+        <h3>每次拍摄</h3>
+        <div class="tw"><table id="htab"><thead><tr><th>次</th><th>时间</th><th>触发</th><th>帧数</th><th>等第一帧 ms</th><th>采集总用时 ms</th><th>传回总用时 s</th><th>从触发到收完 s</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="tp" id="tp-fpga" hidden>
+        <p class="intro">FPGA 统计的计数，从上电起累计。下面的"每秒"列由相邻两次读数相减得出。</p>
+        <div class="row"><label><input type="checkbox" id="auto" checked> 每秒自动刷新</label><button class="sec" data-a="status">立即刷新</button></div>
+        <div class="tw"><table id="diag"><thead><tr><th>项目</th><th>当前值</th><th>每秒</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="tp" id="tp-reg" hidden>
+        <p class="intro">通过 I²C 从相机读回的当前值。"含义"列是按寄存器定义换算的结果。点"读取全部"刷新（大约 1 秒）。改了设置后会自动重读。</p>
+        <div class="row"><button class="sec" id="readall">读取全部</button><span class="meta" id="regtime"></span></div>
+        <div class="tw"><table id="regtab"><thead><tr><th>寄存器</th><th>名称</th><th>原始值</th><th>含义</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+        <div class="src">寄存器定义的来源：Linux 内核 drivers/media/i2c/ov9282.c（本项目的寄存器表就取自这里）。标"推断"的行是根据本项目两种模式表的取值推出来的；标"Rockchip 驱动"的行来自 Rockchip 的 OV9281 驱动，已在板上实测确认。</div>
+    </div>
+    <div class="tp" id="tp-set" hidden>
+        <p class="intro">"初始化相机"会按下面的模式、倍频、HTS、曝光和增益整套写入，写完开始输出。其余各项立即写入相机寄存器，不用重新初始化。寄存器地址写在名称下面。</p>
+    
+        <h3>供电与启动</h3>
+        <div class="set"><div class="k">连接<small>串口</small></div>
+          <div class="c"><button class="sec" data-a="ping">连接测试</button><button class="sec" data-a="reconnect">重连串口</button><button class="sec" data-a="program">烧录 SRAM</button></div>
+          <div class="d">连接测试：FPGA 应答 CAM1 就说明串口和比特流都正常。重连串口：拔插过 USB 后点它。烧录 SRAM：把 build/cam.bit 写进 FPGA。断电后会丢失，每次上电都要烧一次。</div></div>
+        <div class="set"><div class="k">相机使能<small>IO0 / IO1（FPGA 引脚）</small></div>
+          <div class="c"><label><input type="checkbox" id="io0"> IO0</label><label><input type="checkbox" id="io1"> IO1</label></div>
+          <div class="d">排线的 IO0（排针 15）、IO1（排针 18）由 FPGA 输出。按树莓派相机接口的惯例，IO0 是相机供电使能，初始化时会自动拉高。IO1 的用途取决于模组，本程序不用它，默认是低。关掉 IO0 后，相机要重新初始化。</div></div>
+        <div class="set"><div class="k">初始化相机<small>整套寄存器</small></div>
+          <div class="c"><select id="mode"><option>1280x800</option><option>640x400</option></select><select id="bits" style="width:auto"><option value="10">RAW10（10 位）</option><option value="8">RAW8（8 位）</option></select><button id="init">初始化相机</button></div>
+          <div class="d">1280×800 是全分辨率。640×400 是传感器内部 2×2 降采样，帧率更高（模式表来自 Linux 内核 ov9282 驱动）。初始化依次做这些事：拉高 IO0，找 I²C 地址并核对芯片 ID 0x9281，软复位，写通用表、RAW8 表和模式表，设 HTS/VTS/曝光/增益，最后开始输出。</div></div>
+        <div class="set"><div class="k">MIPI 倍频<small>0x0302（hex，初始化时写）</small></div>
+          <div class="c"><input id="pll" value="14"></div>
+          <div class="d">MIPI 锁相环倍频。内核默认是 0x32，每条通道 800 Mbps。本项目用 0x19，实测每条通道 400 Mbps（MIPI 时钟 200 MHz）。FPGA 接收端 csi.clk 约 120～135 MHz，对应最高约 1 Gbps/通道，但这块板子的 3.3V LVDS 输入在高速率下余量不明，所以不建议调高。</div></div>
+        <div class="set"><div class="k">行长 HTS<small>0x380C/0x380D（初始化时写）</small></div>
+          <div class="c"><input id="hts" type="number" value="1900"></div>
+          <div class="d">每一行占用的时钟数，包括消隐。MIPI 降速后，每行数据要更长时间才能发完，所以 HTS 必须加长，否则下一行会挤掉上一行。内核默认约 728，本项目用 1600。HTS 越大，帧率越低。</div></div>
+        <div class="set"><div class="k">开始/停止输出<small>0x0100</small></div>
+          <div class="c"><button class="sec" id="stream1">开始输出</button><button class="sec" id="stream0">待机</button></div>
+          <div class="d">0x0100=1 时传感器连续输出帧；=0 时进入待机，停止输出，寄存器保留。待机时 FS/FE 计数不再增加，拍照会超时。</div></div>
+        <div class="set"><div class="k">软复位<small>0x0103</small></div>
+          <div class="c"><button class="sec" id="reset">软复位</button></div>
+          <div class="d">写 1 后所有寄存器恢复出厂值，传感器停止输出。复位后要点"初始化相机"。</div></div>
+    
+        <div class="set"><div class="k">数据通道输入延时<small>FPGA 命令 Y（DELAYF，0～127 级）</small></div>
+          <div class="c">D0 <input id="dl0" type="number" min="0" max="127" value="15"> D1 <input id="dl1" type="number" min="0" max="127" value="20"><button class="sec" id="setdl">应用</button></div>
+          <div class="d">FPGA 在 MIPI 时钟沿采样数据。数据线上加一段可调延时，就能把采样点挪到每一位的正中间。每级约 25 ps（由实测窗口周期推出），一位在 400 Mbps 时是 2.5 ns，约 98 级。本板实测：400 Mbps 时 D0=15、D1=20 在 CRC 零错误窗口的中心，左右各有约 19 级余量；480 Mbps 时是 7/13。"初始化相机"会按倍频自动设好。0 级会贴着窗口边缘，曾造成画面里第 6 位出错的黑白点。看下方状态表的"CRC 错"是否为 0 来判断。</div></div>
+    
+        <h3>曝光与画面</h3>
+        <div class="set"><div class="k">曝光<small>0x3500～0x3502（单位：行）</small></div>
+          <div class="c"><input id="exp" type="number" value="642" min="1" max="65535"><button class="sec" id="setexp">应用曝光和增益</button><span id="expms" class="meta"></span></div>
+          <div class="d">曝光时间，以"行"计。寄存器里存的是 行数×16，最低 4 位是小数，由程序换算。实际时长 = 行数 × 一行的时间，一行的时间 = 1 /（帧率 × VTS），由实测帧率算出，显示在右边。曝光不应超过 VTS−25（内核驱动的上限）；要曝光更久，先加大 VTS。OV9281 是全局快门，整幅画面同时曝光。</div></div>
+        <div class="set"><div class="k">模拟增益<small>0x3509</small></div>
+          <div class="c"><input id="gain" type="number" value="16" min="16" max="255"><span id="gainx" class="meta"></span></div>
+          <div class="d">取值 16～255（内核驱动的范围）。16 是 1 倍，按 1/16 倍递增，255 约为 15.9 倍。"1/16 递增"是 OmniVision 寄存器的惯例，没有查数据手册核实。增益越高画面越亮，噪点也越多；光线够时优先加曝光。与上面的曝光一起点"应用"。</div></div>
+        <div class="set"><div class="k">帧长 VTS<small>0x380E/0x380F</small></div>
+          <div class="c"><input id="vts" type="number" value="1822" min="810" max="65535"><button class="sec" id="setvts">应用</button></div>
+          <div class="d">每帧的总行数，包括垂直消隐。帧率 = 1 /（VTS × 一行的时间）。VTS 越大，帧率越低，允许的最长曝光越长。初始化时按 1022 + 输出行数设置（1280×800 是 1822）。不能小于输出行数。</div></div>
+        <div class="set"><div class="k">翻转 / 镜像<small>0x3820 位2 / 0x3821 位2</small></div>
+          <div class="c"><label><input type="checkbox" id="vflip"> 上下翻转</label><label><input type="checkbox" id="hmirror"> 左右镜像</label></div>
+          <div class="d">由传感器读出顺序实现，不占 FPGA 资源。位定义来自内核驱动（FLIP、MIRROR 都是位 2）。只改这一位，其他位保留。重新初始化会恢复成不翻转。</div></div>
+        <div class="set"><div class="k">测试图<small>0x5E00 位7</small></div>
+          <div class="c"><label><input type="checkbox" id="tpat"> 输出测试图（彩条）</label></div>
+          <div class="d">打开后，传感器不输出感光数据，改输出固定的条纹图案，用来确认 MIPI 链路和取帧逻辑都没有错位。灰度传感器上显示为从白到黑的 5 级竖条。位定义来自 Rockchip 的 OV9281 驱动，已在本板实测有效：竖条边缘笔直，说明没有错位。</div></div>
+    
+        <h3>SDRAM 帧缓存</h3>
+        <div class="set"><div class="k">读出自检<small>FPGA 命令 T</small></div>
+          <div class="c"><button class="sec" data-a="sdram_test">自检并校准</button><span id="sdres" class="meta"></span></div>
+          <div class="d">一整帧要先存进板上的 SDRAM（W9825G6KH，32 MB，100 MHz）。读回数据时，FPGA 要在合适的时刻采样，这个时刻受走线延迟影响，只能实测。自检把 512 个已知数据写进 SDRAM 再读回，8 个候选采样点（读命令后 3.5～7 拍，每半拍一个）各比对一遍，从全对的区间里选正中间那个。第一次拍照前会自动做一次；重新烧录后也会重做。</div></div>
+    
+        <h3>FPGA 接收选项（MIPI）</h3>
+        <div class="set"><div class="k">接收选项<small>FPGA opts 寄存器</small></div>
+          <div class="c">
+            <label><input type="checkbox" class="opt" value="1"> 反转位序</label>
+            <label><input type="checkbox" class="opt" value="2"> 交换通道</label>
+            <label><input type="checkbox" class="opt" value="4"> D0 取反</label>
+            <label><input type="checkbox" class="opt" value="8" checked> D1 取反</label>
+            <label><input type="checkbox" class="opt" value="16"> 忽略 ECC</label>
+          </div>
+          <div class="d">这些选项只改 FPGA 怎么解码，不改相机。反转位序：每个字节高低位对调。交换通道：把 D0、D1 当成对方。D0/D1 取反：抵消差分对 P/N 接反；当前接法里 D1 的 P/N 是反的，所以默认勾上。忽略 ECC：包头校验不过也照收，偶尔丢行时可以试。上电后默认只勾 D1 取反。opts 的高 3 位存 SDRAM 采样点，由自检设定，这里不显示。</div></div>
+    
+        <h3>寄存器直读直写</h3>
+        <div class="set"><div class="k">任意寄存器<small>16 位地址 / 8 位值（hex）</small></div>
+          <div class="c"><input id="reg" value="300A"><input id="val" value="00"><button class="sec" id="rd">读</button><button class="sec" id="wr">写</button></div>
+          <div class="d">直接读写相机的任意寄存器，结果写在日志里。写错可能让相机停止输出；出问题时点"初始化相机"恢复。</div></div>
+    </div>
+    <div class="tp" id="tp-log" hidden>
+        <div id="log"></div>
+    </div>
+  </section>
+
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const hex = (v, n = 2) => v == null ? '—' : '0x' + v.toString(16).toUpperCase().padStart(n, '0');
+let lastFrame = -1, prev = null, rate = {}, regs = {};
+
+async function act(action, extra = {}) {
+  const r = await fetch('/api/cmd', { method: 'POST', body: JSON.stringify({ action, ...extra }) });
+  const j = await r.json();
+  refresh();
+  return j;
+}
+const wr = (reg, val) => act('i2c_write', { reg: reg.toString(16), val: val.toString(16) });
+
+// ---------------------------------------------------------------- 寄存器表
+// [地址列表, 名称, 换算函数(值数组)->含义, 说明, 标签]
+const REGS = [
+  [[0x300A, 0x300B], '芯片 ID', v => (v[0] << 8 | v[1]) === 0x9281 ? 'OV9281 ✓' : '不是 0x9281', '固定值 0x9281。读到它说明 I²C 通信正常。'],
+  [[0x0100], '工作模式', v => v[0] & 1 ? '正在输出' : '待机', '1 = 连续输出帧，0 = 待机。'],
+  [[0x0302], 'MIPI 倍频', v => `${v[0]}（${v[0] === 0x19 ? '本项目值，约 400 Mbps/通道' : v[0] === 0x32 ? '内核默认，800 Mbps/通道' : '自定义'}）`, '决定 MIPI 线速率；实际速率见下方 FPGA 实测的 MIPI 时钟。'],
+  [[0x030D, 0x3662], '输出位宽', v => v[1] === 0x07 ? 'RAW8（8 位）' : v[1] === 0x05 ? 'RAW10（10 位）' : '未知', '本项目用 RAW8，每像素 1 字节，数据类型 0x2A。RAW10 时 0x3662=0x05。'],
+  [[0x3800, 0x3801, 0x3802, 0x3803], '感光区起点 X/Y', v => `X ${v[0] << 8 | v[1]}，Y ${v[2] << 8 | v[3]}`, '从传感器阵列的哪一点开始读出。'],
+  [[0x3804, 0x3805, 0x3806, 0x3807], '感光区终点 X/Y', v => `X ${v[0] << 8 | v[1]}，Y ${v[2] << 8 | v[3]}`, '读到阵列的哪一点结束；两种模式都是 1295×815，即整片阵列。'],
+  [[0x3808, 0x3809, 0x380A, 0x380B], '输出尺寸', v => `${v[0] << 8 | v[1]} × ${v[2] << 8 | v[3]}`, '每帧输出的宽 × 高（像素）。FPGA 实测的行宽 WC 和行数应与它一致。'],
+  [[0x380C, 0x380D], '行长 HTS', v => `${v[0] << 8 | v[1]}`, '每行总时钟数，含水平消隐。'],
+  [[0x380E, 0x380F], '帧长 VTS', v => `${v[0] << 8 | v[1]} 行`, '每帧总行数，含垂直消隐。帧率 = 1 /（VTS × 行时间）。'],
+  [[0x3810, 0x3811, 0x3812, 0x3813], '输出偏移 X/Y', v => `X ${v[0] << 8 | v[1]}，Y ${v[2] << 8 | v[3]}`, '在感光区内再裁掉的边距。'],
+  [[0x3814, 0x3815], '隔点读出 X/Y', v => `${hex(v[0])} / ${hex(v[1])}（${v[0] === 0x11 && v[1] === 0x11 ? '不跳点' : '跳点/合并'}）`, '0x11 表示逐点读出（1280×800 模式）；640×400 模式是 0x31/0x22，即隔点读出。', '推断'],
+  [[0x3820], '时序格式 1', v => `${hex(v[0])}，上下翻转 ${v[0] & 4 ? '开' : '关'}`, '位 2 = 上下翻转。其他位随模式变化（1280×800 是 0x40，640×400 是 0x60）。'],
+  [[0x3821], '时序格式 2', v => `${hex(v[0])}，左右镜像 ${v[0] & 4 ? '开' : '关'}`, '位 2 = 左右镜像。位 0 在 640×400 模式为 1。'],
+  [[0x3500, 0x3501, 0x3502], '曝光', v => { const e = (v[0] << 16 | v[1] << 8 | v[2]) / 16; return `${e} 行` + (rate.tline ? `，约 ${(e * rate.tline * 1e3).toFixed(2)} ms` : ''); }, '寄存器值 ÷ 16 = 曝光行数。毫秒数由实测帧率和 VTS 算出。'],
+  [[0x3503], '曝光控制', v => hex(v[0]), '本项目写 0x08（内核驱动的值），手动曝光；本程序不使用自动曝光。'],
+  [[0x3509], '模拟增益', v => `${v[0]}（约 ${(v[0] / 16).toFixed(2)} 倍）`, '16 = 1 倍，按 1/16 倍递增（OmniVision 惯例，未查数据手册核实）。'],
+  [[0x4800], 'MIPI 控制', v => `${hex(v[0])}，时钟${v[0] & 0x20 ? '门控（空闲时停）' : '连续'}`, '位 5 = 1 时，时钟通道在行间停下。FPGA 接收端需要连续时钟，所以初始化时写 0x00。'],
+  [[0x5E00], '测试图', v => v[0] & 0x80 ? '开（输出测试图）' : '关（正常图像）', '位 7 = 1 时输出 5 级灰度竖条测试图（本板实测有效）。', 'Rockchip 驱动'],
+];
+const REG_ADDRS = REGS.flatMap(r => r[0]).map(a => a.toString(16).toUpperCase().padStart(4, '0'));
+
+async function readAll() {
+  $('#readall').disabled = true;
+  const j = await (await fetch('/api/cmd', { method: 'POST', body: JSON.stringify({ action: 'regs', regs: REG_ADDRS }) })).json();
+  $('#readall').disabled = false;
+  if (!j.ok) { $('#regtime').textContent = '读取失败：' + j.error; return; }
+  regs = j.result;
+  $('#regtime').textContent = '读取于 ' + new Date().toLocaleTimeString();
+  renderRegs(); syncControls();
+}
+function rv(a) { return regs[a.toString(16).toUpperCase().padStart(4, '0')]; }
+function renderRegs() {
+  $('#regtab tbody').innerHTML = REGS.map(([as, name, fn, desc, tag]) => {
+    const v = as.map(rv), miss = v.some(x => x == null);
+    const addr = as.length > 1 ? `${hex(as[0], 4)}～${hex(as[as.length - 1], 4).slice(-2)}` : hex(as[0], 4);
+    return `<tr><td class="v">${addr}</td><td class="m">${name}${tag ? `<span class="tag warn">${tag}</span>` : ''}</td>
+      <td class="v">${miss ? '—' : v.map(x => hex(x)).join(' ')}</td><td>${miss ? '<span class="badt">无应答</span>' : fn(v)}</td><td class="x">${desc}</td></tr>`;
+  }).join('');
+}
+function syncControls() {
+  const g = (a) => rv(a);
+  if (g(0x3820) != null) $('#vflip').checked = !!(g(0x3820) & 4);
+  if (g(0x3821) != null) $('#hmirror').checked = !!(g(0x3821) & 4);
+  if (g(0x5E00) != null) $('#tpat').checked = !!(g(0x5E00) & 0x80);
+  if (g(0x380E) != null) $('#vts').value = g(0x380E) << 8 | g(0x380F);
+  if (g(0x3500) != null) $('#exp').value = (g(0x3500) << 16 | g(0x3501) << 8 | g(0x3502)) >> 4;
+  if (g(0x3509) != null) $('#gain').value = g(0x3509);
+  updHints();
+}
+function updHints() {
+  $('#gainx').textContent = `约 ${(+$('#gain').value / 16).toFixed(2)} 倍`;
+  $('#expms').textContent = rate.tline ? `约 ${(+$('#exp').value * rate.tline * 1e3).toFixed(2)} ms` : '（等帧率测出后显示毫秒）';
+}
+$('#gain').oninput = updHints;
+$('#native').onchange = (e) => $('#vbox').classList.toggle('native', e.target.checked); $('#exp').oninput = updHints;
+
+// ---------------------------------------------------------------- 设置
+document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => act(b.dataset.a));
+$('#shot1').onclick = () => act('capture', { n: 1 });
+$('#shot20').onclick = () => act('capture', { n: 20 });
+$('#shotHdr').onclick = () => act('hdr', { long_ms: +$('#hdrL').value, short_ms: +$('#hdrS').value });
+$('#init').onclick = async () => { await act('init', { mode: $('#mode').value, bits: +$('#bits').value, exposure: +$('#exp').value, gain: +$('#gain').value, pll: $('#pll').value, hts: +$('#hts').value }); readAll(); };
+$('#setexp').onclick = async () => { await act('exposure', { exposure: +$('#exp').value, gain: +$('#gain').value }); readAll(); };
+$('#setvts').onclick = async () => { const v = +$('#vts').value; await wr(0x380E, v >> 8); await wr(0x380F, v & 0xff); readAll(); };
+$('#stream1').onclick = async () => { await wr(0x0100, 1); readAll(); };
+$('#stream0').onclick = async () => { await wr(0x0100, 0); readAll(); };
+$('#reset').onclick = async () => { if (confirm('软复位后要重新初始化相机，继续？')) { await wr(0x0103, 1); readAll(); } };
+async function setBit(addr, mask, on) {
+  const j = await act('i2c_read', { reg: addr.toString(16) });
+  if (!j.ok || !j.result.ok) return;
+  const v = j.result.val;
+  await wr(addr, on ? v | mask : v & ~mask & 0xff); readAll();
+}
+$('#vflip').onchange = (e) => setBit(0x3820, 4, e.target.checked);
+$('#hmirror').onchange = (e) => setBit(0x3821, 4, e.target.checked);
+$('#tpat').onchange = (e) => setBit(0x5E00, 0x80, e.target.checked);
+$('#io0').onchange = $('#io1').onchange = () => act('power', { io0: +$('#io0').checked, io1: +$('#io1').checked });
+$('#bits').onchange = () => { $('#hts').value = $('#bits').value === '10' ? 1900 : 1800; };
+$('#setdl').onclick = () => act('delay', { d0: +$('#dl0').value, d1: +$('#dl1').value });
+$('#rd').onclick = () => act('i2c_read', { reg: $('#reg').value });
+$('#wr').onclick = () => act('i2c_write', { reg: $('#reg').value, val: $('#val').value });
+document.querySelectorAll('.opt').forEach(c => c.onchange = () => {
+  let v = 0; document.querySelectorAll('.opt').forEach(x => { if (x.checked) v |= +x.value; });
+  act('opts', { value: v });
+});
+
+// ---------------------------------------------------------------- FPGA 状态
+const yes = (b) => b ? '<span class="good">是</span>' : '<span class="badt">否</span>';
+function per(k) { return rate[k] == null ? '' : rate[k].toFixed(rate[k] < 10 ? 2 : 0); }
+function renderDiag(st) {
+  const rows = [
+    ['MIPI 时钟', `${(st.sclk_khz * 2 / 1000).toFixed(1)} MHz`, '', '时钟通道的频率，由 FPGA 用 50 MHz 晶振计数测得。为 0 说明没收到时钟；相机没启动时，悬空输入也可能测出杂乱的数值。'],
+    ['每通道速率', `${st.mipi_mbps_per_lane} Mbps`, '', 'DDR 采样，速率 = 时钟 × 2。两条通道合计速率是它的 2 倍。'],
+    ['帧开始 FS', st.fs, per('fs'), '收到的帧开始短包数。每秒增量就是传感器的实际帧率。'],
+    ['帧结束 FE', st.fe, per('fe'), '收到的帧结束短包数，正常时与 FS 相同或只差 1。'],
+    ['行包 LS', st.ls, per('ls'), '收到的 RAW8 长包（每包一行）数。每秒增量 ≈ 帧率 × 输出行数。'],
+    ['行 CRC 错', st.crc_err, per('crc_err'), '行包末尾 CRC-16 校验不过的次数。每一行像素都校验，任何一位出错都会被数到。正常应一直是 0；不为 0 说明 MIPI 采样有错，先检查下方的输入延时。'],
+    ['数据通道延时', `D0 ${st.delay0} 级 / D1 ${st.delay1} 级`, '', '当前两条数据通道的输入延时（每级约 25 ps）。在设置里修改。'],
+    ['包头 ECC 错', st.ecc_err, per('ecc_err'), '刚同步后第一个包头的 ECC 校验不过的次数，包括行间消隐时噪声造成的假同步。这些包头直接丢弃，不影响出图。如果它涨得很快，同时 FS/LS 不涨，说明信号质量差或位序/极性不对。' + (st.ls ? `　当前错误率 ${(st.ecc_err / (st.ls + st.fs + st.fe) * 100).toFixed(3)}%` : '')],
+    ['最近行宽 WC', `${st.last_wc} 字节`, '', '最近一个行包的长度。RAW8 下等于每行像素数：1280 或 640。'],
+    ['最近一帧行数', st.last_lines, '', '最近一帧从 FS 到 FE 之间的行数：800 或 400。'],
+    ['像素组计数', st.hsum, per('hsum'), 'FPGA 收到的像素令牌数（每 2 个像素一组）。用来确认数据在流动。'],
+    ['其他数据类型', st.last_dt_other ? hex(st.last_dt_other) : '无', '', '最近一个不是 RAW8（0x2A）的长包类型。正常应为"无"；出现别的值说明相机输出了嵌入数据或格式设错了。'],
+    ['最近包头', st.last_hdr, '', '最近一个包头的 4 个字节（数据标识 DI、字数 WC、ECC）。首字节 2A 表示 RAW8 行包。'],
+    ['通道 0 锁定', yes(st.lane0_locked), '', '通道 0 当前已找到同步字节 0xB8 并按字节对齐。每次 HS 传输（一个包）结束后会解锁，下一个包重新对齐；读数正好落在两个包之间时显示"否"，属于正常。'],
+    ['通道 1 锁定', yes(st.lane1_locked), '', '通道 1 当前是否对齐，含义同上。如果两条通道总是只有一条能锁定、FS 不增加，通常是极性或位序设错。'],
+    ['FIFO 溢出', st.fifo_overflow ? '<span class="badt">是</span>' : '否', '', '从 MIPI 时钟域到 100 MHz 处理时钟域的缓冲装满过。出现说明处理跟不上。'],
+    ['抓帧/传输中', st.armed ? '是' : '否', '', 'FPGA 正在把一帧写进 SDRAM，或正在逐行传给主机。'],
+    ['SDRAM 写溢出', st.sdram_overflow ? '<span class="badt">是</span>' : '否', '', '写 SDRAM 的缓冲装满过，意味着丢了像素。正常应为"否"。'],
+    ['相机 I²C 地址', hex(st.i2c_addr), '', 'FPGA 发 I²C 时用的地址（8 位写法）。OV9281 是 0x60（7 位写法 0x30）。'],
+    ['IO0 / IO1', `${st.io0 ? '高' : '低'} / ${st.io1 ? '高' : '低'}`, '', 'FPGA 输出到排线 IO0、IO1 的电平。'],
+    ['接收选项', hex(st.opts), '', 'FPGA 的选项寄存器。低 5 位是解码选项：1 反转位序，2 交换通道，4 D0 取反，8 D1 取反，16 忽略 ECC。高 3 位是 SDRAM 读出采样点。'],
+    ['已抓帧数', st.frames, '', 'FPGA 上电后写进 SDRAM 的帧数，连拍的每一帧都算。'],
+    ['比特流标识', st.magic, '', '固定值 CA5E0002，用来确认 FPGA 里跑的是本项目当前版本的比特流。'],
+  ];
+  $('#diag tbody').innerHTML = rows.map(r => `<tr><td class="m">${r[0]}</td><td class="v">${r[1]}</td><td class="v">${r[2]}</td><td class="x">${r[3]}</td></tr>`).join('');
+}
+function calcRate(st) {
+  const now = performance.now();
+  if (prev && now - prev.t > 300) {
+    const dt = (now - prev.t) / 1000;
+    for (const k of ['fs', 'fe', 'ls', 'ecc_err', 'hsum', 'crc_err']) rate[k] = Math.max(0, (st[k] - prev.st[k]) / dt);
+    const vts = rv(0x380E) != null ? rv(0x380E) << 8 | rv(0x380F) : +$('#vts').value;
+    rate.tline = rate.fs > 0 ? 1 / (rate.fs * vts) : null;
+  }
+  if (!prev || now - prev.t > 300) prev = { t: now, st };
+}
+
+// ---------------------------------------------------------------- 显示调整（局部平均亮度平移，只作用于画布，不碰原始数据）
+const TONE_KEYS = ['rL', 'rH', 'tL', 'tH', 'rad'], TONE_DEF = { rL: 0, rH: 0, tL: 96, tH: 160, rad: 40 };
+try { const t = JSON.parse(localStorage.getItem('tone2') || '{}'); TONE_KEYS.forEach(k => { if (t[k] != null) $('#' + k).value = t[k]; }); } catch {}
+let srcGray = null, srcW = 0, srcH = 0, srcUrl = '', srcBits = 0, srcK = 1, srcMax = 255;   // srcGray：0..255 刻度的浮点值；原始值 = srcGray × srcK
+// 盒式平均（积分图），做两遍近似高斯，避免方形光晕
+function boxBlur(a, w, h, r) {
+  const S = new Float64Array((w + 1) * (h + 1)), out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += a[y * w + x]; S[(y + 1) * (w + 1) + x + 1] = S[y * (w + 1) + x + 1] + row; } }
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1);
+      out[y * w + x] = (S[y1 * (w + 1) + x1] - S[y0 * (w + 1) + x1] - S[y1 * (w + 1) + x0] + S[y0 * (w + 1) + x0]) / ((y1 - y0) * (x1 - x0));
+    }
+  }
+  return out;
+}
+let blurKey = '', blurM = null, viewOverride = null;   // viewOverride：高动态覆盖图直接画彩色，不走原始值显示
+function renderView() {
+  if (viewOverride) { viewOverride(); return; }
+  const L = Math.min(255, Math.max(0, +$('#tL').value)), H = Math.max(L, Math.min(255, +$('#tH').value));
+  const kl = +$('#rL').value / 100, kh = +$('#rH').value / 100, r = Math.max(2, Math.min(200, +$('#rad').value | 0));
+  $('#rLv').textContent = $('#rL').value + '%'; $('#rHv').textContent = $('#rH').value + '%';
+  $('#toneMap').textContent = kl || kh ? `区域平均 0 → ${Math.round(kl * L)}，平均 255 → ${Math.round(255 - kh * (255 - H))}（区域内细节不变）` : '未调整（显示原始值）';
+  if (!srcGray) return;
+  const cv = $('#view'), ctx = cv.getContext('2d'), d = ctx.createImageData(srcW, srcH), p = d.data;
+  let m = null;
+  if (kl || kh) {
+    const key = srcUrl + '|' + r;
+    if (key !== blurKey) { blurM = boxBlur(boxBlur(srcGray, srcW, srcH, r >> 1), srcW, srcH, r >> 1); blurKey = key; }
+    m = blurM;
+  }
+  // 原始值范围：k = 原始值 / 显示刻度（RAW10 为 4）
+  const k = srcK, lo = rangeLo(), hi = rangeHi(), st = $('#vStretch').checked, span = Math.max(1, hi - lo);
+  let sel = 0;
+  for (let i = 0, j = 0; i < srcGray.length; i++, j += 4) {
+    const raw = srcLog ? srcGray[i] * k : Math.round(srcGray[i] * k);
+    if (!(raw >= lo && raw <= hi)) { p[j] = 0; p[j + 1] = 70; p[j + 2] = 140; p[j + 3] = 255; continue; }   // 范围外：蓝色
+    sel++;
+    let v = srcGray[i];
+    if (m) { const a = m[i]; v += (a < L ? (L - a) * kl : 0) - (a > H ? (a - H) * kh : 0); }
+    if (st) v = hi === lo ? 255 : (v * k - lo) / span * 255;
+    p[j] = p[j + 1] = p[j + 2] = v; p[j + 3] = 255;
+  }
+  ctx.putImageData(d, 0, 0);
+  $('#vInfo').textContent = `选中 ${sel.toLocaleString()} 个像素（${(sel / srcGray.length * 100).toFixed(2)}%）`;
+  drawHist();
+}
+// ---------------------------------------------------------------- 原始值直方图与范围
+let hist = null, srcLog = false;
+// 直方图分箱：原始图每个原始值一箱；合成图（浮点、范围很大）按 log(1+值) 均分 1024 箱
+const NB = () => srcLog ? 1024 : Math.round(rawMax()) + 1;
+const v2b = (v) => srcLog ? Math.min(1023, Math.floor(Math.log1p(Math.max(0, v)) / Math.log1p(rawMax()) * 1023)) : Math.round(v);
+const b2v = (b) => srcLog ? Math.expm1(b / 1023 * Math.log1p(rawMax())) : b;
+const rawMax = () => srcMax;
+const rangeLo = () => Math.max(0, Math.min(rawMax(), +$('#vLo').value || 0));
+const rangeHi = () => Math.max(rangeLo(), Math.min(rawMax(), +$('#vHi').value));
+function buildHist() {
+  hist = new Uint32Array(NB());
+  for (let i = 0; i < srcGray.length; i++) hist[v2b(srcGray[i] * srcK)]++;
+}
+// 直方图的红线、黄线（按箱计算，画图和高动态取有效像素共用）
+// 红线：稀疏段的平均差异值。从右往左（原始值从高到低）逐箱看，跳过空箱和最右边那一箱（原始值最高的箱，常是饱和尖峰）；
+//   每箱的差异值 = 它与上一箱（按这个顺序的前一个非空箱）像素数之差的绝对值。前 N 箱（"起始箱数"，默认 100）直接算进稀疏段，
+//   它们的平均差异值是起始平均差异值；之后每一箱的差异值都不能超过前面所有已算进箱的平均差异值 × K（"倍数"，默认 3），
+//   第一个超过的箱处停止。稀疏段 = 停止前算进的这些箱，红线高度 = 它们的平均差异值。
+// 黄线：值 yv = 稀疏段里最高像素数 × M（"黄线倍数"，默认 4）。从稀疏段的最左、最右箱分别向外延伸，两头截止于第一个像素数 > yv 的箱，
+//   或再往外已无像素的位置之前；其间像素数低于 yv 的箱连成若干段，只取最长的一段 [y0, y1]（箱号）。
+const spN = () => Math.max(2, Math.round(+$('#spN').value || 100)), spK = () => Math.max(1, +$('#spK').value || 3);   // 起始至少 2 箱才有差异值
+const spY = () => Math.max(0.1, +$('#spY').value || 4);
+function histLines(hist) {
+  const idx = [];                                       // 非空箱，从右往左
+  for (let b = hist.length - 1; b >= 0; b--) if (hist[b]) idx.push(b);
+  idx.shift();                                          // 不含最右边那一箱
+  if (!idx.length) return null;
+  const K = spK(), n0 = Math.min(spN(), idx.length), dif = (k) => Math.abs(hist[idx[k]] - hist[idx[k - 1]]);
+  let sum = 0, k = 1;                                   // sum = 已算进箱的差异值之和（共 k − 1 个）
+  for (; k < n0; k++) sum += dif(k);
+  for (; k < idx.length; k++) { const d = dif(k); if (d > K * sum / (k - 1)) break; sum += d; }
+  const seg = idx.slice(0, k), segR = seg[0], segL = seg[k - 1];
+  let lo2 = Infinity, hi2 = 0; for (const b of seg) { const c = hist[b]; if (c < lo2) lo2 = c; if (c > hi2) hi2 = c; }
+  const yv = spY() * hi2, first = hist.findIndex(c => c), last = hist.findLastIndex(c => c);
+  let L = segL, R = segR;
+  while (L > first && hist[L - 1] <= yv) L--;
+  while (R < last && hist[R + 1] <= yv) R++;
+  let y0 = 0, y1 = -1, b0 = -1;                        // 最长段 [y0, y1]；b0 = 当前段起点
+  for (let b = L; b <= R + 1; b++) {
+    if (b <= R && hist[b] < yv) { if (b0 < 0) b0 = b; }
+    else if (b0 >= 0) { if (b - 1 - b0 > y1 - y0) { y0 = b0; y1 = b - 1; } b0 = -1; }
+  }
+  return { avg: k > 1 ? sum / (k - 1) : 0, lo2, hi2, k, segL, segR, yv, y0, y1 };
+}
+function drawHist() {
+  const cv = $('#hist'), w = cv.width = Math.round(cv.clientWidth * devicePixelRatio), h = cv.height = Math.round(80 * devicePixelRatio);
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, w, h);
+  $('#stBtn').textContent = stOrig && srcUrl === stOrig.url + '#拉伸' ? '还原原图' : '显示黄线拉伸后的图';   // 换了图就回到"显示"
+  if (!hist) return;
+  const n = hist.length, lo = v2b(rangeLo()), hi = v2b(rangeHi()), top = Math.log10(Math.max(...hist) + 1);
+  ctx.fillStyle = 'rgba(36,99,235,.18)'; ctx.fillRect(lo / n * w, 0, (hi - lo + 1) / n * w, h);
+  for (let x = 0; x < w; x++) {
+    const b0 = Math.floor(x / w * n), b1 = Math.max(b0 + 1, Math.floor((x + 1) / w * n));
+    let c = 0; for (let b = b0; b < b1; b++) c = Math.max(c, hist[b]);
+    if (!c) continue;
+    ctx.fillStyle = b0 >= lo && b0 <= hi ? '#2463eb' : '#98a2b3';
+    const bh = Math.log10(c + 1) / top * (h - 2); ctx.fillRect(x, h - bh, 1, bh);
+  }
+  const hl = histLines(hist);
+  if (hl) {
+    const lw = Math.max(1, Math.round(devicePixelRatio)), y = h - Math.log10(hl.avg + 1) / top * (h - 2);
+    ctx.fillStyle = '#e5484d';                         // 红线只画在稀疏段里的非空箱所在的 x 位置
+    for (let x = 0; x < w; x++) {
+      const b0 = Math.floor(x / w * n), b1 = Math.max(b0 + 1, Math.floor((x + 1) / w * n));
+      for (let b = b0; b < b1; b++) if (b >= hl.segL && b <= hl.segR && hist[b]) { ctx.fillRect(x, Math.round(y), 1, lw); break; }
+    }
+    const fv = (b) => srcLog ? (+b2v(b)).toPrecision(3) : b;
+    ctx.font = `${10 * devicePixelRatio}px sans-serif`; ctx.textAlign = 'right';
+    ctx.fillText(`平均差异 ${hl.avg.toFixed(1)}（原始值 ${fv(hl.segL)}–${fv(hl.segR)}，${hl.k} 箱，每箱 ${hl.lo2}–${hl.hi2}）`, w - 2, y > 14 * devicePixelRatio ? y - 3 : y + 12 * devicePixelRatio);
+    ctx.textAlign = 'left';
+    const y2 = Math.round(h - Math.log10(hl.yv + 1) / top * (h - 2));
+    ctx.fillStyle = '#f5b700';
+    if (hl.y1 >= hl.y0) {
+      const x0 = Math.floor(hl.y0 / n * w);
+      ctx.fillRect(x0, y2, Math.ceil((hl.y1 + 1) / n * w) - x0, lw);
+      ctx.fillText(`${spY()}×${hl.hi2} = ${+hl.yv.toFixed(1)}`, x0 + 2, y2 > 14 * devicePixelRatio ? y2 - 3 : y2 + 12 * devicePixelRatio);
+    }
+  }
+  if (srcLog) {                                        // 对数横轴：标几个刻度
+    ctx.fillStyle = '#667085'; ctx.font = `${10 * devicePixelRatio}px sans-serif`;
+    for (let d = 1; d <= rawMax(); d *= 10) ctx.fillText(d >= 1000 ? d / 1000 + 'k' : d, v2b(d) / n * w + 2, 11 * devicePixelRatio);
+  }
+}
+function setRange(lo, hi, save = true) {
+  const r = (v) => srcLog ? +(+v).toPrecision(4) : Math.round(v);
+  $('#vLo').value = r(Math.min(lo, hi)); $('#vHi').value = r(Math.max(lo, hi));
+  if (save) try { localStorage.setItem('vrange', JSON.stringify([+$('#vLo').value, +$('#vHi').value, $('#vStretch').checked])); } catch {}
+  renderView();
+}
+try { const r = JSON.parse(localStorage.getItem('vrange') || 'null'); if (r) { $('#vLo').value = r[0]; $('#vHi').value = r[1]; $('#vStretch').checked = r[2]; } } catch {}
+try { const r = JSON.parse(localStorage.getItem('sparse') || 'null'); if (r) { $('#spN').value = r[0]; $('#spK').value = r[1]; if (r[2]) $('#spY').value = r[2]; if (r[3] != null) $('#stX').value = r[3]; $('#stApply').checked = !!r[4]; } } catch {}
+$('#spN').oninput = $('#spK').oninput = $('#spY').oninput = $('#stX').oninput = $('#stApply').onchange = () => { try { localStorage.setItem('sparse', JSON.stringify([+$('#spN').value, +$('#spK').value, +$('#spY').value, +$('#stX').value, $('#stApply').checked])); } catch {} drawHist(); };
+// 黄线拉伸：黄线覆盖的箱 [y0, y1] 左头 y0 > x 时，把 [y0, y1] 线性拉到 [x, y1]（右头不动），左头以下 [0, y0) 按比例压到 [0, x)，右头以上不变，
+// 映射单调、不重叠。合成图（对数分箱）在箱坐标里做同样的映射。只改显示用的数据，原图留着，再点一次还原。
+var stOrig = null;                                     // var：drawHist 可能先于这一行被调用
+$('#stBtn').onclick = () => {
+  if (stOrig && srcUrl === stOrig.url + '#拉伸') {                          // 正在看拉伸图：还原
+    const o = stOrig; stOrig = null; srcUrl = o.url; setSrc(o.raw, o.w, o.h, o.kind); $('#fmeta').textContent = o.meta; $('#stBtn').textContent = '显示黄线拉伸后的图'; return;
+  }
+  const hl = hist && histLines(hist);
+  const note = (t) => { $('#stBtn').textContent = t; setTimeout(drawHist, 2500); };   // 提示写在按钮上 2.5 秒，不改图像说明
+  if (!srcGray || !hl || hl.y1 < hl.y0) { note('现在没有黄线'); return; }
+  const kind = srcLog ? 'float' : srcBits === 10 ? 'raw10' : 'raw8', mx = rawMax(), L1 = Math.log1p(mx);
+  const pos = (v) => srcLog ? Math.log1p(Math.max(0, v)) / L1 * 1023 : v, back = (q) => srcLog ? Math.expm1(q / 1023 * L1) : q;
+  const y0 = hl.y0, y1 = hl.y1, xp = pos(Math.max(0, +$('#stX').value || 0)), fv = (q) => srcLog ? (+back(q)).toPrecision(4) : Math.round(q);
+  if (!(y0 > xp)) { note(`黄线左头 ${fv(y0)} ≤ x = ${fv(xp)}，不用拉伸`); return; }
+  const raw = new Float32Array(srcGray.length);
+  for (let i = 0; i < raw.length; i++) {
+    const q = pos(srcGray[i] * srcK);
+    const q2 = q < y0 ? q * xp / y0 : q <= y1 ? (y1 > y0 ? xp + (q - y0) * (y1 - xp) / (y1 - y0) : y1) : q;
+    raw[i] = back(q2);
+  }
+  const orig = new Float32Array(srcGray.length); for (let i = 0; i < orig.length; i++) orig[i] = srcGray[i] * srcK;
+  stOrig = { url: srcUrl, raw: orig, w: srcW, h: srcH, kind, meta: $('#fmeta').textContent };
+  srcUrl = stOrig.url + '#拉伸'; setSrc(raw, srcW, srcH, kind);
+  $('#fmeta').textContent = `黄线拉伸后的图：原始值 ${fv(y0)}～${fv(y1)} 均匀拉到 ${fv(xp)}～${fv(y1)}，${fv(y0)} 以下压到 0～${fv(xp)}，${fv(y1)} 以上不变（只改显示）· ` + stOrig.meta;
+  $('#stBtn').textContent = '还原原图';
+};
+$('#vLo').oninput = $('#vHi').oninput = $('#vStretch').onchange = () => setRange(+$('#vLo').value, +$('#vHi').value);
+$('#vAll').onclick = () => setRange(0, rawMax());
+// ---------------------------------------------------------------- 标签页（两组：拍摄功能 ctabs/cp-*，其余内容 tabs/tp-*；各自记住上次选的）
+function setupTabs(nav, prefix, key, def, onShow) {
+  const show = (t) => {
+    document.querySelectorAll(nav + ' button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+    document.querySelectorAll(`[id^="${prefix}"]`).forEach(p => p.hidden = p.id !== prefix + t);
+    if (onShow) onShow(t);
+    try { localStorage.setItem(key, t); } catch {}
+  };
+  document.querySelectorAll(nav + ' button').forEach(b => b.onclick = () => show(b.dataset.t));
+  let t0 = def; try { t0 = localStorage.getItem(key) || def; } catch {}
+  show(document.getElementById(prefix + t0) ? t0 : def);
+}
+setupTabs('#tabs', 'tp-', 'tab', 'disp', t => { if (t === 'disp') drawHist(); });   // 隐藏时画布宽为 0，切回来要重画
+setupTabs('#ctabs', 'cp-', 'ctab', 'shot', t => { if (t === 'hist') histLoad(); if (t === 'chdr') chOnTab(); });
+let dragFrom = null;
+const histVal = (e) => { const r = $('#hist').getBoundingClientRect(); return Math.max(0, Math.min(rawMax(), b2v(Math.floor((e.clientX - r.left) / r.width * NB())))); };
+$('#hist').onpointerdown = (e) => { dragFrom = histVal(e); $('#hist').setPointerCapture(e.pointerId); setRange(dragFrom, dragFrom); };
+$('#hist').onpointermove = (e) => { if (dragFrom != null) setRange(dragFrom, histVal(e)); };
+$('#hist').onpointerup = () => { dragFrom = null; };
+addEventListener('resize', drawHist);
+// 取原始采样值：RAW10 文件是 16 位（10 位值在高位），按 10 位精度换算到 0..255 刻度
+async function getRaw(url) {
+  const r = await fetch('/raw/' + url.split('/').pop());
+  if (!r.ok) throw new Error('取不到 ' + url);
+  const w = +r.headers.get('X-W'), h = +r.headers.get('X-H'), bits = +r.headers.get('X-Bits'), hdr = r.headers.get('X-Kind') === 'hdr';
+  const buf = new DataView(await r.arrayBuffer()), raw = new Float32Array(w * h);
+  if (bits === 32) for (let i = 0; i < raw.length; i++) raw[i] = buf.getFloat32(4 * i, true);           // 合成图：小端 float32
+  else if (bits === 16) for (let i = 0; i < raw.length; i++) raw[i] = buf.getUint16(2 * i) >> 6;       // RAW10 取高 10 位
+  else for (let i = 0; i < raw.length; i++) raw[i] = buf.getUint8(i);
+  return { w, h, bits, hdr, raw };
+}
+async function loadRaw(url) {
+  srcUrl = url; viewOverride = null;
+  const R = await getRaw(url).catch(() => null);
+  if (!R || srcUrl !== url) return;
+  setSrc(R.raw, R.w, R.h, R.hdr ? 'float' : R.bits === 16 ? 'raw10' : 'raw8');
+}
+// 把一组像素值放到上方大图：raw10 = 0..1023，raw8 = 0..255（也用于算好的 8 位显示值），float = 线性浮点（直方图用对数横轴）
+function setSrc(raw, w, h, kind) {
+  viewOverride = null;
+  const hdr = kind === 'float';
+  let mx = 0; if (hdr) for (let i = 0; i < raw.length; i++) if (raw[i] > mx) mx = raw[i];
+  srcMax = hdr ? Math.max(1, mx) : kind === 'raw10' ? 1023 : 255;
+  srcK = kind === 'raw10' ? 4 : srcMax / 255;
+  const g = new Float32Array(w * h); for (let i = 0; i < g.length; i++) g[i] = raw[i] / srcK;
+  srcGray = g; srcW = $('#view').width = w; srcH = $('#view').height = h; srcBits = hdr ? 32 : kind === 'raw10' ? 10 : 8; srcLog = hdr;
+  $('#vLo').max = $('#vHi').max = rawMax(); $('#vLo').step = $('#vHi').step = hdr ? 'any' : 1;
+  if (+$('#vHi').value > rawMax()) $('#vHi').value = rawMax();
+  buildHist(); renderView();
+}
+TONE_KEYS.forEach(k => $('#' + k).oninput = () => {
+  try { localStorage.setItem('tone2', JSON.stringify(Object.fromEntries(TONE_KEYS.map(x => [x, +$('#' + x).value])))); } catch {}
+  renderView();
+});
+$('#toneReset').onclick = () => { TONE_KEYS.forEach(k => $('#' + k).value = TONE_DEF[k]); try { localStorage.removeItem('tone2'); } catch {} renderView(); };
+renderView();
+
+// ---------------------------------------------------------------- 图像与计时
+let shots = [], selShot = null, selFrame = null, follow = true;
+const ms = (us) => us == null ? '—' : (us / 1000).toFixed(2);
+function select(sid, fi, auto) {
+  const sh = shots.find(x => x.id === sid); if (!sh) return;
+  if (fi === 'm') {                                   // 两档曝光合成图
+    if (!sh.merged) return;
+    selShot = sid; selFrame = 'm'; follow = !auto ? false : follow;
+    const url = '/' + sh.merged.file, mg = sh.merged;
+    if (srcUrl !== url) { loadRaw(url); $('#dl').href = url; $('#dl').download = mg.file.split('/').pop(); }
+    $('#fmeta').textContent = `第 ${sid} 次 · 两档曝光合成 · 长 ${sh.hdr.long_ms} ms / 短 ${sh.hdr.short_ms} ms · 实测曝光比 ${mg.ratio}（名义 ${mg.nominal}）· 黑电平 ${mg.black} · ` +
+      `合成值 0～${mg.max}（32 位浮点线性，单位 = 长曝光的原始值减黑电平；直方图为对数刻度）· 长曝光饱和 ${mg.sat_long} 像素 · ${mg.file}`;
+    renderShots(); return;
+  }
+  const f = sh.frames[fi]; if (!f || !f.file) return;
+  selShot = sid; selFrame = fi;
+  if (!auto) { const last = shots[shots.length - 1]; follow = sh === last && fi === sh.frames.length - 1; }
+  const url = '/' + f.file;
+  if (srcUrl !== url) { loadRaw(url); $('#dl').href = url; $('#dl').download = f.file.split('/').pop(); }
+  const fm = f.file.match(/_(\d+)x(\d+)_(RAW\d+)\.png$/) || [null, sh.w, f.h, 'RAW8'];   // 文件名里有像素尺寸和格式
+  $('#fmeta').textContent = `第 ${sid} 次 · ${sh.src} · 第 ${fi} 帧 / 共 ${sh.n} 帧 · ${fm[1]}×${fm[2]} 原始 ${fm[3]} · ` +
+    (f.missing ? `缺 ${f.missing} 行（以 0 填充）` : '完整') + ` · ${f.file}`;
+  renderShots();
+}
+function renderShots() {
+  const sh = shots.find(x => x.id === selShot) || shots[shots.length - 1];
+  if (!sh) return;
+  $('#strip').innerHTML = (sh.n > 1 ? sh.frames.map(f => `<button class="sec${sh.id === selShot && f.i === selFrame ? ' on' : ''}" ${f.file ? '' : 'disabled'} onclick="select(${sh.id},${f.i})">${sh.hdr ? (f.i ? '短曝光' : '长曝光') : f.i}</button>`).join('') : '') +
+    (sh.hdr ? `<button class="sec${sh.id === selShot && selFrame === 'm' ? ' on' : ''}" ${sh.merged ? '' : 'disabled'} onclick="select(${sh.id},'m')">合成</button>` : '');
+  const fr = sh.frames, n = fr.length;
+  const gaps = fr.slice(1).map((f, i) => f.ts_us - fr[i].ts_us);
+  const avgGap = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : null;
+  const xf = fr.filter(f => f.xfer_s != null);
+  const cell = (v, t) => `<div><b>${v}</b><span>${t}</span></div>`;
+  $('#sum').innerHTML = [
+    cell(`#${sh.id}`, `${sh.src} · ${sh.time}`),
+    cell(sh.n, '帧数'),
+    cell(n ? ms(fr[0].ts_us) : '—', '等第一帧 ms（触发→首帧 FS）'),
+    cell(ms(sh.cap_us), '采集总用时 ms（触发→末帧写完）'),
+    cell(avgGap == null ? '—' : ms(avgGap), `平均帧间隔 ms${avgGap ? `（${(1e6 / avgGap).toFixed(1)} fps）` : ''}`),
+    cell(n ? ms(fr.reduce((a, f) => a + f.te_us - f.ts_us, 0) / n) : '—', '平均每帧写入用时 ms'),
+    cell(sh.xfer_s != null ? sh.xfer_s.toFixed(2) : (xf.length ? `${xf.reduce((a, f) => a + f.xfer_s, 0).toFixed(1)}…` : '—'), '传回总用时 s'),
+    cell(xf.length ? (xf.reduce((a, f) => a + f.xfer_s, 0) / xf.length).toFixed(2) : '—', '平均每帧传回 s'),
+    cell(sh.total_s != null ? sh.total_s.toFixed(2) : '进行中', '从触发到收完 s'),
+    cell(sh.ovf ? '<span class="badt">有</span>' : '无', 'SDRAM 写溢出'),
+  ].join('');
+  $('#ftab tbody').innerHTML = fr.map((f, i) => `<tr class="click${sh.id === selShot && f.i === selFrame ? ' sel' : ''}" onclick="select(${sh.id},${f.i})">
+    <td class="v">${f.i}</td><td class="v">${ms(f.ts_us)}</td><td class="v">${ms(f.te_us)}</td><td class="v">${ms(f.te_us - f.ts_us)}</td>
+    <td class="v">${i ? ms(f.ts_us - fr[i - 1].ts_us) : '—'}</td><td class="v">${f.xfer_s != null ? f.xfer_s.toFixed(2) : '传回中…'}</td>
+    <td class="v">${f.h}</td><td>${f.missing == null ? '—' : f.missing ? `<span class="badt">缺 ${f.missing} 行</span>` : '<span class="good">完整</span>'}</td>
+    <td class="x">${f.file ? f.file.split('/').pop() : ''}</td></tr>`).join('');
+  $('#htab tbody').innerHTML = shots.slice().reverse().map(x => `<tr class="click${x.id === sh.id ? ' sel' : ''}" onclick="pickShot(${x.id})">
+    <td class="v">${x.id}</td><td class="v">${x.time.slice(11)}</td><td>${x.src}</td><td class="v">${x.n}</td>
+    <td class="v">${x.frames.length ? ms(x.frames[0].ts_us) : '—'}</td><td class="v">${ms(x.cap_us)}</td>
+    <td class="v">${x.xfer_s != null ? x.xfer_s.toFixed(2) : '进行中'}</td><td class="v">${x.total_s != null ? x.total_s.toFixed(2) : '进行中'}</td></tr>`).join('');
+}
+function pickShot(id) {
+  const sh = shots.find(x => x.id === id); if (!sh) return;
+  const done = sh.frames.filter(f => f.file);
+  if (done.length) select(id, done[0].i); else { selShot = id; renderShots(); }
+}
+
+// ---------------------------------------------------------------- 按指定曝光拍 1 帧（高动态、Claude 高动态共用）
+// 服务端按曝光自动调好 HTS/VTS 再抓帧、恢复原时序，然后逐行传回；这里等这一帧存盘后读回原始值（要求 RAW10）。
+async function shootMs(ms, tag) {
+  const s0 = await (await fetch('/api/state')).json(), id0 = s0.shots && s0.shots.length ? s0.shots[s0.shots.length - 1].id : 0;   // 现读，不用可能过时的全局列表
+  const j = await act('shot_ms', { ms, tag });
+  if (!j.ok) throw new Error(j.error);
+  for (const t0 = Date.now(); Date.now() - t0 < 120000;) {
+    await new Promise(r => setTimeout(r, 300));
+    const s = await (await fetch('/api/state')).json();
+    const sh = (s.shots || []).find(x => x.id > id0 && x.exp);
+    if (sh && sh.frames[0] && sh.frames[0].file) {
+      const R = await getRaw('/' + sh.frames[0].file);
+      if (R.bits !== 16) throw new Error('要求 RAW10，请在"设置"里选 RAW10 并初始化相机');
+      return { sh, R };
+    }
+  }
+  throw new Error('120 秒内没收到这一帧');
+}
+
+// ---------------------------------------------------------------- 高动态单步
+// 每点一次拍 1 帧（RAW10），按结果决定下一拍的曝光，像素合格时生成有效像素块 BKk：
+//  第 1 阶段：从 0.02 ms 起拍；最高像素值 < 800 则曝光加倍再拍；≥ 800 时（曝光 BG1）取像素值在黄线范围内的像素
+//    + 满爆像素（1023）作为 BK1，BBB1 = BK1 像素数 / 总像素数。
+//  第 k 阶段（k ≥ 2）：从 2 × BG(k−1) 起拍；没有满爆像素就曝光加倍；满爆像素占比 ≥ BBB(k−1) 就取这次和上次曝光的中间值；
+//    满爆像素占比 < BBB(k−1) 时合格（曝光 BGk），取黄线范围内的像素作为 BKk，BBBk = BK1～BKk 覆盖的像素数（同一位置只算一次）/ 总像素数。
+//  BBBk > 95% 时结束。曝光上限 10000 ms；中间值与上次相差不到 1 行（曝光的最小单位）时无法再细分，也停下。
+// 每次高动态是一个"会话"，每拍完一步存到服务器 captures/hd_<编号>.json（参数、每一拍的数据、帧文件名、合成层；
+// 像素块载入时由帧文件和黄线范围重建）。刷新页面后自动载入最近一次，也可从"会话"里选以前的，继续单步或查看。
+let hd = null, hdBusy = false, dragR = null;
+const SAT = 1023;
+const BKC = ['#e5484d', '#f5b700', '#30a46c', '#0091ff', '#8e4ec6', '#f76b15', '#12a594', '#d6409f', '#7c66dc', '#99d52a'];
+const bkColor = (i) => BKC[i % BKC.length];
+const pc = (x, d = 2) => (x * 100).toFixed(d) + '%';
+const p4 = (x) => x == null ? '—' : (+x).toPrecision(4);
+const stamp = () => { const d = new Date(), p = (x) => String(x).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
+
+function hdNew() {
+  hd = { id: stamp(), k: 1, e: 0.02, lo: null, hi: null, done: false, end: '', bbb: 0, steps: [], bk: [], layers: [] };
+  hdCovMap(); hdRender(true); hdSave();
+}
+async function hdSave() {
+  const data = { ...hd, first: undefined, bk: hd.bk.map(({ gray, img, ...b }) => b) };
+  await act('sess_save', { kind: 'hd', id: hd.id, data }).catch(() => {});
+  hdList();
+}
+async function hdList() {
+  const ls = await (await fetch('/api/hd')).json().catch(() => []);
+  $('#hdSess').innerHTML = ls.map(x => `<option value="${x.id}"${hd && hd.id === x.id ? ' selected' : ''}>${x.id.replace(/^(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)(\d\d)$/, '$1-$2-$3 $4:$5:$6')} · ${x.nbk} 块 · 覆盖 ${pc(x.bbb, 1)}${x.done ? ' · 已结束' : ''}</option>`).join('');
+  return ls;
+}
+function bkBuild(v, b) {                               // 由帧的原始值重建有效像素块（块外 NaN；b.sx 有值时块内按黄线拉伸）和整幅图像（显示刻度 = 原始值 / 4）
+  const N = v.length, gray = new Float32Array(N), img = new Float32Array(N); let c = 0;
+  for (let i = 0; i < N; i++) {
+    const x = v[i], inB = (x >= b.y0 && x <= b.y1) || (b.k === 1 && x === SAT);
+    const xs = b.sx != null && x >= b.y0 && x <= b.y1 ? (b.y1 > b.y0 ? b.sx + (x - b.y0) * (b.y1 - b.sx) / (b.y1 - b.y0) : b.y1) : x;   // 黄线拉伸
+    img[i] = x / 4; gray[i] = inB ? xs / 4 : NaN; if (inB) c++;
+  }
+  b.gray = gray; b.img = img; b.n = c; b.pct = c / N;
+}
+function hdCovMap() {                                  // 每个像素第一个覆盖它的块（0 = 没有）；顺带算每块新增覆盖和累计 BBB
+  if (!hd.bk.length) { hd.first = null; hd.bbb = 0; return; }
+  const N = hd.bk[0].gray.length, f = new Uint8Array(N), add = new Uint32Array(hd.bk.length);
+  for (let i = 0; i < N; i++) for (let j = 0; j < hd.bk.length; j++) if (hd.bk[j].gray[i] === hd.bk[j].gray[i]) { f[i] = j + 1; add[j]++; break; }
+  let cum = 0;
+  hd.bk.forEach((b, j) => { cum += add[j]; b.newN = add[j]; b.bbb = cum / N; });
+  hd.first = f; hd.bbb = cum / N;
+}
+function hdFromLog(log, bk) {                         // 旧格式会话只有文字记录：逐行解析成"每一拍"的数据（请求曝光没记，留空）
+  return log.map((l, i) => {
+    const m = l.match(/BK(\d+) 第 (\d+) 拍：曝光 ([\d.]+) ms，最高值 (\d+)，满爆 (\d+)（([\d.]+)%），(?:黄线范围 (\d+)–(\d+)|无黄线)(?:，(\S+\.png))? → (.*)$/);
+    if (!m) return { n: i + 1, k: null, res: l };
+    const k = +m[1], res = m[10], j = bk.findIndex(b => b.k === k && /合格/.test(res));
+    if (j >= 0) bk[j].step = +m[2];
+    const nx = res.match(/(?:到|中间值) ([\d.]+) ms/);
+    return { n: +m[2], k, req: null, ms: +m[3], max: +m[4], sat: +m[5], satP: m[6] / 100, thr: k > 1 && bk[k - 2] ? bk[k - 2].bbb : null,
+      y0: m[7] == null ? null : +m[7], y1: m[8] == null ? null : +m[8], file: m[9] ? 'captures/' + m[9] : null,
+      res: j >= 0 ? `合格 → BK${k}` : res.replace(/，?曝光加倍到.*/, ' → 加倍').replace(/，?取中间值.*/, ' → 取中间值'), bk: j >= 0 ? j : undefined,
+      next: nx ? +nx[1] : j >= 0 ? +m[3] * 2 : null };
+  });
+}
+async function hdLoad(id) {
+  if (hdBusy) return;
+  hdBusy = true; $('#hdInfo').textContent = `载入会话 ${id}…（每块要读回一帧，约 1 秒）`;
+  try {
+    const d = await (await fetch('/api/hd/' + id)).json();
+    d.steps = d.steps || hdFromLog(d.log || [], d.bk); d.layers = d.layers || [];
+    for (const b of d.bk) { const R = await getRaw('/' + b.file); bkBuild(R.raw, b); b.w = R.w; b.h = R.h; }
+    hd = d; hdCovMap();
+  } catch (e) { $('#hdInfo').textContent = '载入失败：' + e.message; hdBusy = false; return; }
+  hdBusy = false; hdRender(true); hdList();
+  if ($('#cp-hd').hidden) return;                     // 自动载入时不在这个标签：不抢上方大图
+  if (hd.layers.length) showLayers(); else if (hd.bk.length) showCov();
+}
+
+// ---------------- 单步
+async function hdStep() {
+  const e = +$('#hdE').value;                         // 输入框可改下一拍曝光（先读，hdNew 会改写输入框）
+  if (!hd) hdNew();
+  if (hd.done || hdBusy) return;
+  if (e > 0) hd.e = Math.min(10000, e);
+  hdBusy = true; $('#hdStep').disabled = true;
+  const st = { n: hd.steps.length + 1, k: hd.k, req: hd.e, thr: hd.k > 1 ? hd.bbb : null };
+  try {
+    $('#hdInfo').textContent = `第 ${st.n} 拍：曝光 ${p4(st.req)} ms，拍摄并传回中（约 10 秒）…`;
+    const { sh, R } = await shootMs(hd.e, `高动态 第 ${st.n} 拍（找 BK${hd.k}）`);
+    const v = R.raw, N = v.length, real = sh.exp.ms, tl = real / sh.exp.lines;
+    const hist = new Uint32Array(SAT + 1); let mx = 0;
+    for (let i = 0; i < N; i++) { hist[v[i]]++; if (v[i] > mx) mx = v[i]; }
+    const sat = hist[SAT], hl = histLines(hist), satP = sat / N;
+    Object.assign(st, { ms: real, max: mx, sat, satP, file: sh.frames[0].file, y0: hl && hl.y1 >= hl.y0 ? hl.y0 : null, y1: hl && hl.y1 >= hl.y0 ? hl.y1 : null });
+    let ok = false;
+    if (hd.k === 1) {
+      if (mx < 800) { hd.e = real * 2; st.res = '最高值 < 800 → 加倍'; }
+      else ok = true;
+    } else if (sat === 0) {
+      hd.lo = real; hd.e = hd.hi == null ? real * 2 : (hd.lo + hd.hi) / 2;
+      st.res = `没有满爆 → ${hd.hi == null ? '加倍' : '取中间值'}`;
+    } else if (satP >= hd.bbb) {
+      hd.hi = real; hd.e = (hd.lo + hd.hi) / 2; st.res = '满爆 ≥ 阈值 → 取中间值';
+    } else ok = true;
+    if (ok) {
+      if (st.y0 == null) throw new Error('这一帧算不出黄线范围');
+      const sxv = Math.max(0, +$('#stX').value || 0), sx = $('#stApply').checked && st.y0 > sxv ? sxv : null;   // 勾了"应用到之后的有效像素块"才拉伸
+      const b = { k: hd.k, ms: real, y0: st.y0, y1: st.y1, sx, sat: hd.k === 1 ? sat : 0, file: st.file, step: st.n, w: R.w, h: R.h };
+      bkBuild(v, b); hd.bk.push(b); hdCovMap();
+      st.res = `合格 → BK${hd.k}`; st.bk = hd.bk.length - 1;
+      if (hd.bbb > 0.95) { hd.done = true; hd.end = `完成：BK1～BK${hd.k} 覆盖 ${pc(hd.bbb)} 的像素`; }
+      else { hd.lo = real; hd.hi = null; hd.e = real * 2; hd.k++; }
+    } else if (hd.hi != null && hd.hi - hd.lo <= tl * 1.01) {
+      hd.done = true; hd.end = `停止：BK${hd.k} 的曝光在 ${p4(hd.lo)}～${p4(hd.hi)} ms 之间已相差不到 1 行，无法再细分`;
+    }
+    if (!hd.done && hd.e > 10000) { hd.done = true; hd.end = `停止：下一拍曝光 ${p4(hd.e)} ms 超过上限 10000 ms`; }
+    st.next = hd.done ? null : hd.e;
+  } catch (e) { st.res = '出错：' + e.message; }
+  hd.steps.push(st);
+  hdBusy = false; hdRender(true); hdSave(); refresh();
+  if (st.bk != null) showCov(); else if (st.file) hdView(st.n - 1);
+}
+
+// ---------------- 页面内容
+let hdSig = '';
+function hdRender(force) {
+  const sig = JSON.stringify([hd && hd.id, hd && hd.steps.length, hd && hd.layers, selFrame, hdSel, hdBusy]);
+  if (!force && sig === hdSig) return;                // 没变化就不重画（重画会打断拖动）
+  hdSig = sig;
+  $('#hdStep').disabled = hdBusy || !!(hd && hd.done);
+  if (!hd) return;
+  if (document.activeElement !== $('#hdE')) $('#hdE').value = +p4(hd.e);
+  // 进度条：每块新增的覆盖，颜色同覆盖图；竖线 = 95%
+  $('#hdBar').innerHTML = hd.bk.map((b, i) => `<div style="width:${b.newN / b.gray.length * 100}%;background:${bkColor(i)}" title="BK${b.k} 新增 ${pc(b.newN / b.gray.length)}"></div>`).join('') + '<i title="95%"></i>';
+  $('#hdInfo').textContent = `会话 ${hd.id} · 已拍 ${hd.steps.length} 次 · ${hd.bk.length} 个块 · 覆盖 ${pc(hd.bbb)}（目标 > 95%）· ` +
+    (hd.done ? hd.end : `下一拍：找 BK${hd.k}，曝光 ${p4(hd.e)} ms`);
+  // ① 每一拍
+  $('#hdSteps tbody').innerHTML = hd.steps.map((s, i) => `<tr class="click${s.bk != null ? ' ok' : ''}${selFrame === 'hdstep' && hdSel === i ? ' sel' : ''}" onclick="hdView(${i})">
+    <td class="v">${s.n}</td><td>BK${s.k}</td><td class="v">${p4(s.req)}</td><td class="v">${p4(s.ms)}</td><td class="v">${s.max ?? '—'}</td>
+    <td class="v">${s.sat == null ? '—' : `${s.sat}（${pc(s.satP, 3)}）`}</td><td class="v">${s.thr == null ? '—' : pc(s.thr)}</td>
+    <td class="v">${s.y0 == null ? '—' : `${s.y0}–${s.y1}`}</td>
+    <td>${s.bk != null ? `<span class="sw" style="background:${bkColor(s.bk)}"></span><b>${s.res}</b>` : s.res}</td><td class="v">${p4(s.next)}</td></tr>`).join('');
+  // ② 块卡片
+  const N = hd.bk.length ? hd.bk[0].gray.length : 1;
+  $('#hdCards').innerHTML = hd.bk.length ? hd.bk.map((b, i) => `<div class="bkc">
+    <b><span class="sw" style="background:${bkColor(i)}"></span>BK${b.k}</b> · 第 ${b.step ?? '?'} 拍 · ${p4(b.ms)} ms
+    <canvas id="bkth${i}" width="256" height="160"></canvas>
+    原始值 ${b.y0}–${b.y1}${b.sx != null ? `（拉伸到 ${b.sx}–${b.y1}）` : ''}${b.sat ? ` + 满爆 ${b.sat.toLocaleString()}` : ''}<br>
+    块内 ${b.n.toLocaleString()} 像素（${pc(b.pct)}）· 新增覆盖 ${pc(b.newN / N)} · 累计 ${pc(b.bbb)}
+    <div class="row"><button class="sec" onclick="hdView(${b.step - 1})">看原帧</button><button class="sec" onclick="lyAdd('bk',${i})">+有效像素</button><button class="sec" onclick="lyAdd('img',${i})">+整幅</button></div>
+  </div>`).join('') : '<span class="meta">还没有合格的块。</span>';
+  hd.bk.forEach((b, i) => bkThumb($('#bkth' + i), b));
+  // ③ 合成层
+  const on = selFrame === 'hdly';
+  $('#hdCovBtn').classList.toggle('on', selFrame === 'hdcov');
+  $('#hdLayers').innerHTML = hd.layers.map((it, k) => {
+    const b = hd.bk[it.i];
+    return `<div class="ord" draggable="true" ondragstart="dragR=${k}" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="lyMove(dragR,${k})">` +
+      `<b>[${k + 1}]</b><span><span class="sw" style="background:${bkColor(it.i)}"></span>${it.t === 'img' ? '整幅图像' : '有效像素'} BK${b.k} · ${p4(b.ms)} ms` +
+      `${it.t === 'bk' ? ` · 原始值 ${b.y0}–${b.y1}${b.sx != null ? `→${b.sx}–${b.y1}` : ''}${b.sat ? ' + 满爆' : ''}` : ''}${on && lyUsed ? ` · 用上 ${lyUsed[k].toLocaleString()} 像素` : ''}</span>` +
+      `<button class="sec" ${k ? '' : 'disabled'} onclick="lyMove(${k},${k - 1})">↑</button><button class="sec" ${k < hd.layers.length - 1 ? '' : 'disabled'} onclick="lyMove(${k},${k + 1})">↓</button>` +
+      `<button class="sec" onclick="hd.layers.splice(${k},1);lyChanged()">✕</button></div>`;
+  }).join('') + (hd.layers.length && !on ? '<button class="sec" onclick="showLayers()">显示合成</button>' : '');
+}
+function bkThumb(cv, b) {                              // 缩略图：每 5 个像素取 1 个，块内按 y0–y1 拉伸，块外黑
+  const ctx = cv.getContext('2d'), d = ctx.createImageData(cv.width, cv.height), p = d.data, sx = b.w / cv.width, sy = b.h / cv.height;
+  const lo = (b.sx ?? b.y0) / 4, span = Math.max(0.25, (b.y1 - (b.sx ?? b.y0)) / 4);
+  for (let y = 0, j = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++, j += 4) {
+    const g = b.gray[Math.floor(y * sy) * b.w + Math.floor(x * sx)];
+    const c = g === g ? Math.max(0, Math.min(255, (g - lo) / span * 255)) : 0;
+    p[j] = p[j + 1] = p[j + 2] = g === g && g * 4 === SAT ? 255 : c; p[j + 3] = 255;
+  }
+  ctx.putImageData(d, 0, 0);
+}
+
+// ---------------- 大图显示：某一拍原图 / 覆盖图 / 合成
+let hdSel = null, lyUsed = null;
+function hdView(i) {
+  const s = hd.steps[i]; if (!s || !s.file) return;
+  loadRaw('/' + s.file); $('#dl').href = '/' + s.file; $('#dl').download = s.file.split('/').pop();
+  selFrame = 'hdstep'; hdSel = i; follow = false;
+  $('#fmeta').textContent = `高动态第 ${s.n} 拍（找 BK${s.k}）· 曝光 ${p4(s.ms)} ms · 最高值 ${s.max} · 满爆 ${s.sat}（${pc(s.satP, 3)}）· ` +
+    `黄线范围 ${s.y0 == null ? '—' : s.y0 + '–' + s.y1}（想只看这段，在"显示与直方图"里把原始值范围设成它）· ${s.res} · ${s.file}`;
+  hdRender();
+}
+function showCov() {
+  if (!hd || !hd.first) return;
+  selFrame = 'hdcov'; follow = false; srcUrl = 'hdcov'; hist = null; lyUsed = null;
+  const b0 = hd.bk[0];
+  viewOverride = () => {
+    const cv = $('#view'); cv.width = b0.w; cv.height = b0.h;
+    const ctx = cv.getContext('2d'), d = ctx.createImageData(b0.w, b0.h), p = d.data;
+    const rgb = BKC.map(c => [1, 3, 5].map(k => parseInt(c.slice(k, k + 2), 16)));
+    for (let i = 0, j = 0; i < hd.first.length; i++, j += 4) {
+      const f = hd.first[i];
+      if (f) { const c = rgb[(f - 1) % rgb.length]; p[j] = c[0]; p[j + 1] = c[1]; p[j + 2] = c[2]; }
+      p[j + 3] = 255;
+    }
+    ctx.putImageData(d, 0, 0); drawHist();
+  };
+  renderView();
+  $('#fmeta').textContent = '覆盖图：' + hd.bk.map((b, i) => `BK${b.k} ${p4(b.ms)} ms 新增 ${pc(b.newN / b.gray.length)}`).join(' · ') +
+    ` · 黑色 = 未覆盖 ${pc(1 - hd.bbb)}（颜色见上方进度条和块卡片）`;
+  hdRender();
+}
+function showLayers() {
+  if (!hd) return;
+  viewOverride = null; selFrame = 'hdly'; follow = false;
+  if (!hd.layers.length) { lyUsed = null; $('#fmeta').textContent = '合成：还没有层。在块卡片上点"+有效像素"或"+整幅"。'; hdRender(); return; }
+  const ls = hd.layers.map(it => it.t === 'img' ? hd.bk[it.i].img : hd.bk[it.i].gray), b0 = hd.bk[hd.layers[0].i];
+  const N = ls[0].length, g = new Float32Array(N).fill(NaN); lyUsed = new Uint32Array(ls.length);
+  for (let i = 0; i < N; i++) for (let j = 0; j < ls.length; j++) { const v = ls[j][i]; if (v === v) { g[i] = v; lyUsed[j]++; break; } }
+  srcUrl = 'hdly:' + JSON.stringify(hd.layers); srcGray = g; srcW = $('#view').width = b0.w; srcH = $('#view').height = b0.h;
+  srcMax = SAT; srcK = 4; srcBits = 10; srcLog = false;
+  $('#vLo').max = $('#vHi').max = SAT; $('#vLo').step = $('#vHi').step = 1;
+  buildHist(); renderView();
+  const tot = lyUsed.reduce((a, c) => a + c, 0);
+  $('#fmeta').textContent = `合成：${hd.layers.length} 层，合计 ${tot.toLocaleString()} 像素（${pc(tot / N)}）有值；重叠处取次序靠前的层；没有值的位置涂蓝。每层用上的像素数见"③ 对比查看"。`;
+  hdRender(true);
+}
+function lyChanged() { hdSave(); showLayers(); }
+function lyAdd(t, i) { if (!hd.layers.some(x => x.t === t && x.i === i)) hd.layers.push({ t, i }); lyChanged(); }
+function lyAll(t) { hd.bk.forEach((b, i) => { if (!hd.layers.some(x => x.t === t && x.i === i)) hd.layers.push({ t, i }); }); lyChanged(); }
+function lySort(dir) { hd.layers.sort((a, b) => dir * (hd.bk[a.i].ms - hd.bk[b.i].ms) || (a.t === b.t ? 0 : a.t === 'bk' ? -1 : 1)); lyChanged(); }
+function lyMove(r, t) {
+  if (r == null || t < 0 || t >= hd.layers.length || r === t) return;
+  hd.layers.splice(t, 0, hd.layers.splice(r, 1)[0]); lyChanged();
+}
+$('#hdStep').onclick = hdStep;
+$('#hdReset').onclick = hdNew;
+$('#hdSess').onchange = (e) => hdLoad(e.target.value);
+$('#hdCovBtn').onclick = showCov;
+$('#lyBk').onclick = () => hd && lyAll('bk');
+$('#lyImg').onclick = () => hd && lyAll('img');
+$('#lyUp').onclick = () => hd && lySort(1);
+$('#lyDown').onclick = () => hd && lySort(-1);
+$('#lyNone').onclick = () => { if (hd) { hd.layers = []; lyChanged(); } };
+hdList().then(ls => { if (ls.length) hdLoad(ls[0].id); });   // 刷新后自动载入最近一次
+
+// ---------------------------------------------------------------- Claude 高动态
+// 目标：同一静止场景拍一组不同曝光，合成一张"辐射度图"（每个像素的真实亮度，线性浮点），再用局部色调映射把十几档的
+// 亮暗跨度压进屏幕能显示的范围，同时保留并增强各处的细节。四步：
+// 1. 自动定曝光（拍完一帧再定下一帧）：先拍"起始"曝光；最短一帧饱和像素（≥ 1015）超过 0.01% 就缩短 8 倍（找高光），直到不超过或到 1 行；
+//    再看最长一帧，暗部（信号 < 32 DN）超过 1% 就加长（找暗部），倍数 = 把第 1 百分位的信号提到 200 DN 所需，限制在 2～8 倍，
+//    不超过"最长"（被截到不足上一帧 1.5 倍就不拍）；帧数到上限也停。拍到的每一帧都参与合成。
+// 2. 标定（只用图像本身）：相邻两帧用第三帧分组（避免噪声造成的选择偏差），拟合两帧组均值的直线，得实测曝光比和黑电平；
+//    两帧之差的方差随信号的变化给出噪声模型 方差 = k·信号 + σ²（k：每个电子对应的 DN，σ：读出噪声 DN）。详见 chCalib。实测曝光比在寄存器值的 0.5～2 倍之间、且有 ≥ 2000 个像素参与时用实测，否则用寄存器值。
+//    （室内灯光有 100 Hz 闪烁：短于 10 ms 的曝光实际进光量随拍摄时刻变，实测比寄存器准。）
+// 3. 合成：每帧给出一个估计 R = (v − b) / t（t：相对曝光，最长一帧为 1，所以 R 的单位是"最长一帧的 DN"），按逆方差加权平均：
+//    w = t² / (k·信号 + σ²)，即曝光长、没饱和的帧权重大；970～1010 之间逐渐降权，≥ 1010 不用。同时得到每个像素的信噪比
+//    R·√Σw 和"主要来自哪一帧"。所有帧都饱和的像素用最短一帧的值，计为"仍饱和"。
+//    像素在各帧的估计彼此不一致（χ²/自由度 > 25，说明这期间它变了：运动或灯光变化）时，只用权重最大的那一帧，避免重影。
+//    孤立的单像素亮点（传感器热像素）换成 8 邻域中位数。
+// 4. 色调映射（在 log2 亮度上做，单位"档"）：L = log2(R + σ)。两次自引导滤波（保边平滑）把 L 分成三层：
+//    底层（半径"尺度"，大块明暗）、中层细节（底层到 2 像素平滑之间）、微纹理（2 像素以内）。2 像素的那次滤波把每个像素自己的
+//    噪声方差加进保边阈值，噪声不会被当成"边缘"留下。底层用直方图调整（Ward Larson 1997）压到"压缩到"指定的档数：像素多的
+//    亮度段分到更多显示范围，且任何地方的对比都不超过原图（上限），跨度本来就不超过指定档数时原样不压；中层 × "细节" × 25·snr²/(25·snr² + 降噪²)；
+//    微纹理 × "微纹理" × 噪声门 snr²/(snr² + 降噪²)；底层再按"暗部提亮"抬起暗端；最后最亮的 0.2% 定为白，按"亮度"平移，
+//    0.8 以上用软肩平滑压向白（不硬切），1/2.2 伽马显示。
+// 5. 客观指标（见 chMetrics）：可见细节、结构一致、暗处显示噪声、裁切，结果和最好的单帧各算一次对比；"自动调参"在几组参数里
+//    选可见细节最高、且结构一致 ≥ 0.95、裁切 ≤ 1%、暗处噪声和梯度反转都不超过默认参数（反转至少允许 0.2%）的一组。
+//    2026-11-24 调出的默认值：压缩到 5 档、细节 2.5、微纹理 2、降噪 8、尺度 48（第 4 轮由 24 改 48：梯度反转少 56～93%，见 host/chdr_log.md）。
+let ch = null, chBusy = false, chStop = false, chM = null, chView = 'res', chSplit = 0.5, chCache = {}, chDisp = null, chRef = null, chRefM = null, chResM = null;
+// 合成时原始值 970～1010 逐渐降权、≥ 1010 不用。第 15 轮实测：四组数据的"长帧 ÷ 短帧"从 600 到 1016 都平（±0.5%），1016 以上才是饱和截断，
+// 原来从 900 开始降权、960 以上丢弃，浪费了 960～1015 这段（高光过渡区信噪比因此提高 25%～105%）。
+const CH_SAT = 1015, CH_VMAX = 1010, CH_TAPER = 40;
+// 相邻曝光最多差 CH_STEP 倍。8 倍（3 档）：长帧刚饱和（约 900 DN）的像素在短帧里约 110 DN，按实测 k ≈ 0.15 DN/电子约 750 个电子，
+// 信噪比约 27，过渡处仍 ≥ 10；两帧都曝光合适的重叠段（短 ≥ 20 DN、长 ≤ 850 DN）也够标定用。
+const CH_STEP = 8;
+// 最短一帧饱和像素超过这个比例才再拍一帧"找高光"。结果显示时最亮的 0.2% 本来就定为白，几十个饱和像素（如灯芯）多拍一帧（约 10 秒）
+// 在画面上几乎看不出：第 8 轮实测 22～24 个饱和像素时，去掉这一帧只有 82～326 个像素的显示变化超过 2 灰度级，各项指标持平。
+const CH_HSAT = 1e-4;
+const CH_DEF = { comp: 5, det: 2.5, fine: 2, nr: 8, rad: 48, edge: 0.5, lift: 0.3, ev: 0 };
+const CH_UI = [['comp', '压缩到', 2, 12, 0.5, '档'], ['det', '细节', 0, 3, 0.1, '×'], ['fine', '微纹理', 0, 3, 0.1, '×'],
+  ['nr', '降噪', 0, 20, 0.5, ''], ['rad', '尺度', 4, 96, 1, 'px'], ['edge', '保边', 0.1, 2, 0.05, '档'], ['lift', '暗部提亮', 0, 0.5, 0.05, ''], ['ev', '亮度', -3, 3, 0.1, 'EV']];
+
+function chNewObj(note) { return { id: stamp(), frames: [], tone: { ...CH_DEF }, done: false, note: note || '', stats: null }; }
+async function chSave() {
+  const data = { ...ch, frames: ch.frames.map(({ raw, st, ...f }) => f) };
+  await act('sess_save', { kind: 'chdr', id: ch.id, data }).catch(() => {});
+  chList();
+}
+async function chList() {
+  const ls = await (await fetch('/api/chdr')).json().catch(() => []);
+  $('#chSess').innerHTML = '<option value="">（选择以前的会话）</option>' + ls.map(x => `<option value="${x.id}"${ch && ch.id === x.id ? ' selected' : ''}>` +
+    `${x.id.replace(/^(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)(\d\d)$/, '$1-$2-$3 $4:$5:$6')} · ${x.nf} 帧${x.dr ? ` · ${x.dr.toFixed(1)} 档` : ''}</option>`).join('');
+  return ls;
+}
+async function chLoad(id) {
+  if (chBusy || !id) return;
+  chBusy = true; chRender();
+  try {
+    const d = await (await fetch('/api/chdr/' + id)).json();
+    d.tone = { ...CH_DEF, ...d.tone };
+    for (const [i, f] of d.frames.entries()) { chInfo(`载入会话 ${id}：第 ${i + 1}/${d.frames.length} 帧…`); const R = await getRaw('/' + f.file); f.raw = R.raw; f.w = R.w; f.h = R.h; }
+    ch = d; chSyncSliders(); chProcess();
+  } catch (e) { chInfo('载入失败：' + e.message); }
+  chBusy = false; chRender(); chList();
+  if (chM && !$('#cp-chdr').hidden) chShow(chView);
+}
+async function chFromHd() {                            // 把"高动态"当前会话拍过的帧拿来合成（不用再拍）
+  if (chBusy) return;
+  if (!hd || !hd.steps.some(s => s.file)) { chInfo('"高动态"里还没有载入的会话，先到"高动态"标签选一个。'); return; }
+  chBusy = true; ch = chNewObj(`帧来自高动态会话 ${hd.id}`); chSyncSliders(); chRender();
+  try {
+    const fs = hd.steps.filter(s => s.file);
+    for (const [i, s] of fs.entries()) {
+      chInfo(`读取高动态会话的第 ${i + 1}/${fs.length} 帧…`);
+      const R = await getRaw('/' + s.file);
+      ch.frames.push({ file: s.file, ms: s.ms, lines: null, hts: null, req: s.req, role: '取自高动态 第 ' + s.n + ' 拍', raw: R.raw, w: R.w, h: R.h });
+    }
+    ch.done = true; chProcess(); await chSave();
+  } catch (e) { chInfo('出错：' + e.message); }
+  chBusy = false; chRender(); if (chM) chShow('res');
+}
+
+// ---------------- 1. 自动定曝光并拍摄
+async function chRun() {
+  if (chBusy) return;
+  const e0 = Math.max(0.02, +$('#chE0').value || 4), emax = Math.min(10000, Math.max(e0, +$('#chEmax').value || 2000));
+  const nmax = Math.max(2, Math.min(12, +$('#chN').value | 0 || 7));
+  ch = chNewObj(); chM = null; chBusy = true; chStop = false; chSyncSliders(); chRender();
+  const flk = $('#chFlk').checked, fx = (ms) => flk && ms >= 10 ? Math.round(ms / 10) * 10 : ms;   // 避开 100 Hz 灯光闪烁
+  let next = fx(e0), role = '起点', pend = null;
+  // 一拿到一帧，只用它的直方图定下一帧曝光并立刻发出去；合成、色调映射、存会话在下一帧拍摄和传回期间做（省去帧间约 2 秒）
+  const shoot = () => { const n = ch.frames.length + 1, r = role, e = next; chInfo(`第 ${n} 帧：曝光 ${p4(e)} ms（${r}），拍摄并传回中，约 ${Math.round(8 + e * 3 / 1000)} 秒…`);
+    return shootMs(e, `Claude 高动态 第 ${n} 帧（${r}）`).then(x => ({ ...x, req: e, role: r })); };
+  try {
+    pend = shoot();
+    while (pend) {
+      const { sh, R, req, role: r } = await pend; pend = null;
+      const f = { file: sh.frames[0].file, ms: sh.exp.ms, lines: sh.exp.lines, hts: sh.exp.hts, req, role: r, raw: R.raw, w: R.w, h: R.h };
+      ch.frames.push(f); f.tn = f.lines * f.hts;
+      chStat(f, chM ? chM.b : 64, chM ? chM.k : 0.5, chM ? chM.sig ** 2 : 4);
+      [next, role] = chPlan(emax);
+      if (next != null && role === '找暗部') next = Math.max(fx(next), chSorted().at(-1).ms + (flk && next >= 10 ? 10 : 0));
+      if (next != null && !chStop && ch.frames.length < nmax) pend = shoot();
+      chProcess(); chRender(); chShow(chView); await chSave();
+      if (pend) chInfo(`第 ${ch.frames.length + 1} 帧：曝光 ${p4(next)} ms（${role}），拍摄并传回中…`);
+    }
+    ch.note = chStop ? '已手动停止' : next == null ? role : `已到最多 ${nmax} 帧`;
+  } catch (e) { ch.note = '出错：' + e.message; }
+  ch.done = true; chBusy = false; chRender(); await chSave();
+}
+function chPlan(emax) {                                // 返回 [下一帧曝光 ms 或 null, 作用或停止原因]
+  const fs = chSorted(), S = fs[0], L = fs[fs.length - 1];
+  if (S.st.sat > CH_HSAT && (S.lines == null || S.lines > 1)) return [S.ms / CH_STEP, '找高光'];
+  const nx = Math.min(emax, L.ms * Math.min(CH_STEP, Math.max(2, 200 / Math.max(1, L.st.p1))));
+  if (L.st.dark > 0.01 && nx >= L.ms * 1.5) return [nx, '找暗部'];   // 被"最长"截到不足 1.5 倍的就不拍了：多出的暗部信号有限，却要多花一帧
+  return [null, S.st.sat > CH_HSAT ? '停止：最短一帧已是 1 行，仍有饱和' : L.st.dark > 0.01 ? '停止：已到最长曝光，暗部仍不足' : '完成：高光和暗部都已拍到'];
+}
+const chSorted = () => ch.frames.slice().sort((a, b) => a.tn - b.tn);
+// 每帧统计（饱和、暗部不足、曝光合适、第 1 百分位信号、单帧信噪比 ≥ 10 的像素）：只看这一帧的直方图，几毫秒
+function chStat(f, b, k, s2) {
+  const N = f.raw.length, hs = new Uint32Array(1024); for (let i = 0; i < N; i++) hs[f.raw[i]]++;
+  let sat = 0, dark = 0, good = 0, snr10 = 0, cum = 0, p1 = null;
+  for (let v = 0; v < 1024; v++) {
+    const c = hs[v], s = v - b; if (!c) continue;
+    if (v >= CH_SAT) sat += c; if (s < 32) dark += c; else if (v < CH_VMAX) good += c;
+    if (v < CH_VMAX && s > 0 && s * s >= 100 * (k * s + s2)) snr10 += c;
+    cum += c; if (p1 == null && cum >= N * 0.01) p1 = s;
+  }
+  f.st = { sat: sat / N, dark: dark / N, good: good / N, snr10: snr10 / N, p1 };
+}
+
+// ---------------- 2～3. 标定与合成
+function chProcess() {
+  const fs = ch.frames;
+  if (!fs.length) { chM = null; return; }
+  fs.forEach(f => f.tn = f.lines && f.hts ? f.lines * f.hts : f.ms);   // 寄存器给的相对曝光（行数 × 行长）；没有就用毫秒
+  const S = chSorted(), w = S[0].w, h = S[0].h, N = w * h, cal = chCalib(S);
+  const { b, k, sig } = cal, s2 = sig * sig;
+  S.forEach((f, j) => { f.t = cal.t[j]; f.tr = cal.tr[j]; f.fit = cal.fit[j]; });
+  for (const f of S) chStat(f, b, k, s2);
+  // 合成
+  const R = new Float32Array(N), snr = new Float32Array(N), src = new Uint8Array(N), win = new Uint32Array(S.length);
+  const raws = S.map(f => f.raw), ts = S.map(f => f.t), F = S.length;
+  let clip = 0, moved = 0;
+  for (let i = 0; i < N; i++) {
+    let sw = 0, swr = 0, bw = 0, bj = 0;
+    for (let j = 0; j < F; j++) {
+      const v = raws[j][i]; if (v >= CH_VMAX) continue;
+      const s = v - b, t = ts[j], hh = v > CH_VMAX - CH_TAPER ? (CH_VMAX - v) / CH_TAPER : 1;
+      const wt = hh * t * t / (k * (s > 0 ? s : 0) + s2);
+      sw += wt; swr += wt * s / t; if (wt > bw) { bw = wt; bj = j; }
+    }
+    if (sw > 0) {
+      let r = swr / sw, c2 = 0, dof = -1;
+      for (let j = 0; j < F; j++) {                     // 各帧估计与加权平均之差，按各自噪声归一化：χ²
+        const v = raws[j][i]; if (v >= CH_VMAX) continue;
+        const s = v - b, t = ts[j], e = s / t - r; c2 += e * e * t * t / (k * (s > 0 ? s : 0) + s2); dof++;
+      }
+      if (dof >= 1 && c2 / dof > 25) { const s = raws[bj][i] - b; r = s / ts[bj]; sw = ts[bj] * ts[bj] / (k * (s > 0 ? s : 0) + s2); moved++; }
+      R[i] = r; snr[i] = r > 0 ? r * Math.sqrt(sw) : 0; src[i] = bj; win[bj]++;
+    }
+    else { R[i] = (raws[0][i] - b) / ts[0]; snr[i] = 0; src[i] = 255; clip++; }
+  }
+  S.forEach((f, j) => f.win = win[j] / N);
+  // 热像素：比 8 邻域中位数高出 5 倍噪声以上、且是中位数的 1.5 倍以上、且只有它一个亮（第二亮的邻居不超过中位数 + 5 倍噪声）的点，
+  // 换成邻域中位数。依据：2026-11-24 四次拍摄里这样的点有 63 个在 ≥ 3 次的同一位置出现，是传感器缺陷，不是景物。
+  const hot = [], nb = new Float32Array(8), ns = new Float32Array(8);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x, r = R[i]; let c = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx || dy) { ns[c] = snr[i + dy * w + dx]; nb[c++] = R[i + dy * w + dx]; }
+    nb.sort(); const med = (nb[3] + nb[4]) / 2, n = Math.max(r / Math.max(snr[i], 0.5), sig);
+    if (r - med > 5 * n && r > 1.5 * Math.max(med, sig) && nb[7] < med + 5 * n) { ns.sort(); hot.push([i, med, (ns[3] + ns[4]) / 2]); }
+  }
+  for (const [i, med, sn] of hot) { R[i] = med; snr[i] = sn; }
+  // 质量指标
+  const q = chQuant(R, [0.001, 0.999], sig);
+  let m10 = 0; for (let i = 0; i < N; i++) if (snr[i] >= 10) m10++;
+  const best = S.reduce((a, f) => f.st.snr10 > a.st.snr10 ? f : a, S[0]);
+  const st = {
+    // 动态范围按"能记录的"算：单帧 = 不饱和的最大信号 / 读出噪声；合成 = 单帧 + 最短到最长的实测曝光跨度
+    n: F, b, k, sig, clip: clip / N, span: Math.log2(1 / ts[0]),
+    dr: Math.log2((CH_VMAX - b) / sig) + Math.log2(1 / ts[0]), dr1: Math.log2((CH_VMAX - b) / sig),
+    scene: q[0] > 0 ? Math.log2(q[1] / q[0]) : null, moved: moved / N, hot: hot.length, snr10: m10 / N, snr10b: best.st.snr10, best: S.indexOf(best), calNote: cal.note
+  };
+  chM = { w, h, R, snr, src, b, k, sig, S, best: S.indexOf(best), st, hot: hot.map(x => x[0]) };
+  ch.stats = { dr: st.dr, dr1: st.dr1, snr10: st.snr10, b, k, sig };
+  chCache = {}; chDisp = null; chRef = null; chRefM = null; chResM = null;
+}
+function chQuant(a, qs, floor) {                       // 百分位（只统计 > floor 的值；4096 个对数分箱）
+  let lo = Infinity, hi = -Infinity, n = 0;
+  for (let i = 0; i < a.length; i++) { const v = a[i]; if (v > floor) { if (v < lo) lo = v; if (v > hi) hi = v; n++; } }
+  if (!n) return qs.map(() => 0);
+  const l0 = Math.log2(lo), sc = 4095 / Math.max(1e-9, Math.log2(hi) - l0), H = new Uint32Array(4096);
+  for (let i = 0; i < a.length; i++) { const v = a[i]; if (v > floor) H[Math.round((Math.log2(v) - l0) * sc)]++; }
+  return qs.map(q => { let c = 0; for (let j = 0; j < 4096; j++) { c += H[j]; if (c >= q * n) return 2 ** (l0 + j / sc); } return hi; });
+}
+function chCalib(S) {
+  // 相邻两帧 A（短）、B（长）：用第三帧 C（优先更长的下一帧，没有就用更短的上一帧）的原始值分组——分组不用 A、B 自己的值，
+  // 所以 A、B 的噪声不会造成选择偏差。每组取 A、B 的均值，直线拟合 均值A = a·均值B + c0：曝光比 r = 1/a，黑电平 b = c0/(1 − a)。
+  // 噪声：每组内 d = A − a·B，场景本身的亮度差在 d 里抵消，只剩噪声：方差(d) = k·信号A·(1 + a) + σ²·(1 + a²)。
+  const F = S.length, out = { b: 64, k: 0.5, sig: 2, t: [], tr: [], fit: [], note: '' };
+  const prs = [], bs = [], NB = 1024;
+  for (let j = 0; j + 1 < F; j++) {
+    const kk = j + 2 < F ? j + 2 : j - 1;
+    if (kk < 0) { prs.push(null); continue; }           // 只有 2 帧：没有第三帧，用寄存器值
+    // 第三帧按原始值分组：先用 8 DN 宽的组；组不够（第三帧比这两帧暗很多时，有用的值只集中在黑电平上方十几 DN）再改用 1 DN 宽
+    const A = S[j].raw, B = S[j + 1].raw, C = S[kk].raw;
+    let rows = [];
+    for (const sh of [3, 0]) {
+      const M = Array.from({ length: 6 }, () => new Float64Array(NB)), [n, sa, sb, saa, sbb, sab] = M;
+      for (let i = 0; i < A.length; i++) { const c = C[i]; if (c >= 900) continue; const q = c >> sh, x = A[i], y = B[i]; n[q]++; sa[q] += x; sb[q] += y; saa[q] += x * x; sbb[q] += y * y; sab[q] += x * y; }
+      rows = [];
+      for (let q = 0; q < NB; q++) {
+        if (n[q] < 50) continue;
+        const ma = sa[q] / n[q], mb = sb[q] / n[q];
+        if (mb < 90 || mb > 850 || ma < 70) continue;     // B 太暗（贴着黑电平）或接近饱和、A 太暗的组不用
+        rows.push({ n: n[q], ma, mb, va: saa[q] / n[q] - ma * ma, vb: sbb[q] / n[q] - mb * mb, cab: sab[q] / n[q] - ma * mb });
+      }
+      if (rows.length >= 6) break;
+    }
+    if (rows.length < 6) { prs.push(null); continue; }
+    let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (const r of rows) { sw += r.n; sx += r.n * r.mb; sy += r.n * r.ma; sxx += r.n * r.mb * r.mb; sxy += r.n * r.mb * r.ma; }
+    const a = (sw * sxy - sx * sy) / (sw * sxx - sx * sx), c0 = (sy - a * sx) / sw, r = 1 / a, rn = S[j + 1].tn / S[j].tn;
+    if (!(r > 1.02)) { prs.push(null); continue; }
+    prs.push({ r, a, c0, rows, ok: sw >= 2000 && r / rn > 0.5 && r / rn < 2 });   // 室内灯光有工频闪烁，10 ms 以内的曝光实际进光量会偏离寄存器值，以实测为准
+    if (rn >= 1.8) bs.push(c0 / (1 - a));                 // 曝光比太接近 1 时黑电平对误差太敏感，不用
+  }
+  const med = (v) => v.slice().sort((x, y) => x - y)[v.length >> 1];
+  if (bs.length) out.b = Math.min(100, Math.max(30, med(bs)));
+  const ks = [], sg = [];
+  for (const p of prs) {
+    if (!p) continue;
+    let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (const r of p.rows) {
+      const s = r.ma - out.b, v = r.va + p.a * p.a * r.vb - 2 * p.a * r.cab;   // 方差(A − a·B)
+      if (s < 0 || s > 400 || !(v > 0)) continue;
+      sw += r.n; sx += r.n * s; sy += r.n * v; sxx += r.n * s * s; sxy += r.n * s * v;
+    }
+    if (sw <= 0) continue;
+    const sl = (sw * sxy - sx * sy) / (sw * sxx - sx * sx), ic = (sy - sl * sx) / sw;
+    const kv = sl / (1 + p.a), s2 = ic / (1 + p.a * p.a);
+    if (kv > 0 && kv < 10) ks.push(kv); if (s2 > 0) sg.push(Math.sqrt(s2));
+  }
+  if (ks.length) out.k = med(ks); if (sg.length) out.sig = Math.min(20, Math.max(0.5, med(sg)));
+  // 相对曝光：从最短一帧起，相邻帧乘实测（或寄存器）曝光比，最后归一化到最长一帧 = 1
+  const t = [1], tr = [1];
+  for (let j = 0; j + 1 < F; j++) { const p = prs[j], rn = S[j + 1].tn / S[j].tn; t.push(t[j] * (p && p.ok ? p.r : rn)); tr.push(tr[j] * rn); }
+  out.t = t.map(x => x / t[F - 1]); out.tr = tr.map(x => x / tr[F - 1]);
+  out.fit = [null].concat(prs.map(p => p ? p.r : null));   // 第 j 帧与前一帧的实测曝光比
+  const used = prs.filter(p => p && p.ok).length;
+  out.note = F < 2 ? '只有 1 帧，黑电平和噪声用默认值' : `${F - 1} 对相邻帧中 ${used} 对用实测曝光比（其余用寄存器值）` +
+    (bs.length ? `，黑电平由 ${bs.length} 对实测` : '，黑电平用默认 64') + (ks.length ? `，噪声由 ${ks.length} 对实测` : '，噪声用默认值');
+  return out;
+}
+// ---------------- 4. 色调映射
+function gfSelf(I, w, h, r, eps, nv) {                 // 自引导滤波（He 等，2010）：保边平滑；起伏小于 √eps 的被抹平
+  const N = I.length, II = new Float32Array(N);         // nv（可选）：每像素噪声方差，阈值变成 eps + 2·nv，噪声不算边缘
+  for (let i = 0; i < N; i++) II[i] = I[i] * I[i];
+  const mI = boxBlur(I, w, h, r), mII = boxBlur(II, w, h, r), A = new Float32Array(N), B = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const v = Math.max(0, mII[i] - mI[i] * mI[i]), a = v / (v + eps + (nv ? 2 * nv[i] : 0)); A[i] = a; B[i] = mI[i] - a * mI[i]; }
+  const mA = boxBlur(A, w, h, r), mB = boxBlur(B, w, h, r), q = new Float32Array(N);
+  for (let i = 0; i < N; i++) q[i] = mA[i] * I[i] + mB[i];
+  return q;
+}
+function chTone(opt) {                                  // opt：临时参数（自动调参用），不改会话；返回显示值 0..255
+  const { w, h, R, snr, sig } = chM, p = { ...ch.tone, ...opt }, N = R.length, C = chCache;
+  if (!C.L) { C.L = new Float32Array(N); for (let i = 0; i < N; i++) C.L[i] = Math.log2((R[i] > 0 ? R[i] : 0) + sig); }
+  if (!C.nv) {                                          // log2 域每像素噪声方差 ≈ 1/(snr·ln2)²，5×5 平均
+    const nv = new Float32Array(N); for (let i = 0; i < N; i++) { const s = Math.max(snr[i], 0.5) * Math.LN2; nv[i] = Math.min(4, 1 / (s * s)); }
+    C.nv = boxBlur(nv, w, h, 2);
+  }
+  const L = C.L, km = 'm' + p.edge, kb = 'b' + p.rad + '_' + p.edge;
+  if (!C[km]) C[km] = gfSelf(L, w, h, 2, (p.edge / 4) ** 2, C.nv);
+  if (!C[kb]) { const bb = gfSelf(L, w, h, p.rad, p.edge ** 2); const q = chQuant(bb.map(x => 2 ** x), [0.005, 0.999], 0); C[kb] = { bb, lo: Math.log2(q[0]), hi: Math.log2(q[1]) }; }
+  const mid = C[km], { bb, lo, hi } = C[kb], D = p.comp, nr2 = p.nr * p.nr;
+  // 底层映射 f：直方图调整（上限：斜率 ≤ 1，即任何亮度段的对比都不超过原图），把 [lo, hi] 映射到 [−D, 0]
+  let f = (x) => x - hi;
+  if (hi - lo > D) {
+    const NB = 256, db = (hi - lo) / NB, hh = new Float64Array(NB);
+    for (let i = 0; i < N; i++) hh[Math.min(NB - 1, Math.max(0, Math.floor((bb[i] - lo) / db)))]++;
+    for (let it = 0; it < 50; it++) {                   // 反复削掉超过上限的箱，直到削掉的 < 0.25%
+      let T = 0; for (const c of hh) T += c;
+      const ceil = T * db / D; let trim = 0;
+      for (let k = 0; k < NB; k++) if (hh[k] > ceil) { trim += hh[k] - ceil; hh[k] = ceil; }
+      if (trim < T * 0.0025) break;
+    }
+    const P = new Float64Array(NB + 1); for (let k = 0; k < NB; k++) P[k + 1] = P[k] + hh[k];
+    f = (x) => { const u = (x - lo) / db; if (u <= 0) return -D + (x - lo); if (u >= NB) return x - hi; const k = u | 0; return -D + D * (P[k] + (u - k) * hh[k]) / P[NB]; };
+  }
+  const out = new Float32Array(N);
+  // 噪声门：微纹理按像素信噪比；中层细节是 5×5 平滑后的，信噪比约为像素的 5 倍，按 25·snr² 算（第 6 轮：暗处噪声 −6%，其他指标不降）
+  for (let i = 0; i < N; i++) {
+    const s2 = snr[i] * snr[i], g = nr2 ? s2 / (s2 + nr2) : 1, gm = nr2 ? 25 * s2 / (25 * s2 + nr2) : 1;
+    // 暗部提亮：底层映射到 [−D, 0] 后再加 lift·fb²/D，最暗处抬高 lift·D 档、最亮处不变，中间平滑过渡；细节层在其后加，暗部纹理幅度不减，
+    // 抬到更亮的显示段后更容易看清（2026-11-24 用户反馈"长曝光里明显的暗部细节到结果里太暗"；0.3 时暗部平均亮度与最长一帧相当）
+    const fb = f(bb[i]), fc = Math.max(fb, -D);
+    out[i] = fb + p.lift * fc * fc / D + p.det * (mid[i] - bb[i]) * gm + p.fine * (L[i] - mid[i]) * g;
+  }
+  const top = Math.log2(chQuant(out.map(x => 2 ** x), [0.998], 0)[0]), d = new Float32Array(N);
+  // 高光软肩：亮度超过 0.8（白 = 1）的部分按 tanh 平滑压向白，不再在最亮的 0.2% 处一刀切成纯白（第 14 轮：纯白像素少约 60%，其他指标持平）
+  for (let i = 0; i < N; i++) { const y = 2 ** (out[i] - top + p.ev), ys = y > 0.8 ? 0.8 + 0.2 * Math.tanh((y - 0.8) / 0.2) : y; d[i] = 255 * ys ** (1 / 2.2); }
+  if (opt) return d;
+  chDisp = d; chResM = chMetrics(d);
+  // 对比用的"最好的单帧"：信噪比 ≥ 10 的像素最多的那一帧，按普通相机的方式显示（线性、白点 1023、1/2.2 伽马）
+  if (!chRef) { const fr = chM.S[chM.best], b = chM.b; chRef = new Float32Array(N); for (let i = 0; i < N; i++) chRef[i] = 255 * Math.min(1, Math.max(0, (fr.raw[i] - b) / (1023 - b))) ** (1 / 2.2); chRefM = chMetrics(chRef); }
+  return d;
+}
+function chAuto() {                                     // 自动调参：在几组参数里挑可见细节最高、且不牺牲结构、不过度裁切和放大噪声的
+  if (!chM) return;
+  chInfo('自动调参：正在试 24 组参数…');
+  setTimeout(() => {
+    const base = chMetrics(chTone({ ...CH_DEF, rad: ch.tone.rad, edge: ch.tone.edge })), rows = [];
+    for (const comp of [4, 5, 6, 7]) for (const det of [1.5, 2, 2.5]) for (const fine of [1.3, 2]) {
+      const o = { comp, det, fine, nr: CH_DEF.nr, ev: 0 }, m = chMetrics(chTone(o));
+      if (m.cor >= 0.95 && m.clip <= 0.01 && m.noise <= base.noise * 1.05 + 0.1 && m.rev <= Math.max(0.002, base.rev)) rows.push({ o, m });
+    }
+    rows.sort((a, b) => b.m.vis - a.m.vis || b.m.cor - a.m.cor);
+    if (!rows.length) { chInfo('自动调参：没有一组同时满足条件，参数不变'); return; }
+    Object.assign(ch.tone, rows[0].o); chSyncSliders(); chToneChanged();
+    setTimeout(() => chInfo(`自动调参：选了 压缩到 ${rows[0].o.comp} 档、细节 ${rows[0].o.det}、微纹理 ${rows[0].o.fine}（可见细节 ${pc(rows[0].m.vis, 1)}，结构一致 ${rows[0].m.cor.toFixed(3)}；${rows.length} 组满足条件）`), 200);
+  }, 30);
+}
+
+// ---------------- 客观指标（对比和自动调参用）
+// 按 16×16 像素分块，每块再分成 4×4 个小块（每个 4×4 像素）取均值——取均值把单像素噪声压低 4 倍，留下 4 像素以上的结构。
+//  有结构的块：辐射度 log2 亮度的小块均值离散度 > 3 倍"小块均值的噪声"（由每个像素的信噪比算出）且 > 0.03 档。
+//  可见细节 = 有结构的块里，显示值的小块均值离散度 ≥ 1.5 个灰度级的比例（越高越好）。
+//  结构一致 = 有结构的块里，显示值与 log2 亮度的小块均值的相关系数的平均（越接近 1 越好；光晕、明暗反转会让它变低）。
+//  显示噪声 = 信噪比中位数 < 10 的块里，显示值在 4×4 小块内的标准差的平均（越低越好）。
+//  裁切 = 显示值 ≤ 1 或 ≥ 254 的像素比例（越低越好）。
+function chMetrics(d) {
+  const { w, h, snr, sig } = chM, L = chCache.L, B = 16, nb = (w / B | 0) * (h / B | 0);
+  let pres = 0, vis = 0, cor = 0, nz = 0, nzn = 0, clip = 0;
+  for (let i = 0; i < d.length; i++) if (d[i] <= 1 || d[i] >= 254) clip++;
+  const ml = new Float64Array(16), md = new Float64Array(16), sn = [];
+  for (let by = 0; by + B <= h; by += B) for (let bx = 0; bx + B <= w; bx += B) {
+    let fine = 0; sn.length = 0;
+    for (let s = 0; s < 16; s++) {
+      const x0 = bx + (s & 3) * 4, y0 = by + (s >> 2) * 4; let a = 0, b = 0, bb = 0;
+      for (let y = y0; y < y0 + 4; y++) for (let x = x0; x < x0 + 4; x++) { const i = y * w + x; a += L[i]; b += d[i]; bb += d[i] * d[i]; sn.push(snr[i]); }
+      ml[s] = a / 16; md[s] = b / 16; fine += Math.sqrt(Math.max(0, bb / 16 - md[s] * md[s]));
+    }
+    sn.sort((x, y) => x - y);
+    const smed = sn[128], nL = 1 / (Math.max(smed, 0.3) * Math.LN2) / 4;   // 小块均值在 log2 域的噪声
+    let mL = 0, mD = 0; for (let s = 0; s < 16; s++) { mL += ml[s]; mD += md[s]; } mL /= 16; mD /= 16;
+    let vL = 0, vD = 0, cLD = 0; for (let s = 0; s < 16; s++) { const a = ml[s] - mL, b = md[s] - mD; vL += a * a; vD += b * b; cLD += a * b; }
+    const sL = Math.sqrt(vL / 16), sD = Math.sqrt(vD / 16);
+    if (smed < 10) { nz += fine / 16; nzn++; }
+    if (sL > 3 * nL && sL > 0.03) { pres++; if (sD >= 1.5) vis++; cor += vD > 0 ? cLD / Math.sqrt(vL * vD) : 0; }
+  }
+  return { vis: pres ? vis / pres : 0, cor: pres ? cor / pres : 0, noise: nzn ? nz / nzn : 0, clip: clip / d.length, pres: pres / nb, rev: chRev(d) };
+}
+// 梯度反转（光晕的特征）：4×4 像素块均值的网格上，相邻两块真实亮度差明显（> 3 倍自身噪声且 > 0.05 档）时，
+// 显示却朝相反方向差 ≥ 1 个灰度级的比例。越低越好；全局单调映射（普通单帧）基本为 0。
+function chRev(d) {
+  const { w, h, snr } = chM, L = chCache.L, gw = w >> 2, gh = h >> 2, G = gw * gh;
+  const mL = new Float32Array(G), mD = new Float32Array(G), nL = new Float32Array(G);
+  for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+    let a = 0, b = 0, v = 0;
+    for (let y = gy * 4; y < gy * 4 + 4; y++) for (let x = gx * 4; x < gx * 4 + 4; x++) { const i = y * w + x, s = Math.max(snr[i], 0.5) * Math.LN2; a += L[i]; b += d[i]; v += Math.min(4, 1 / (s * s)); }
+    const g = gy * gw + gx; mL[g] = a / 16; mD[g] = b / 16; nL[g] = Math.sqrt(v / 256);
+  }
+  let sig = 0, rev = 0;
+  for (let a = 0; a < G; a++) for (const b of [(a + 1) % gw ? a + 1 : -1, a + gw < G ? a + gw : -1]) {
+    if (b < 0) continue;
+    const dL = mL[b] - mL[a];
+    if (Math.abs(dL) > 3 * Math.hypot(nL[a], nL[b]) && Math.abs(dL) > 0.05) { sig++; const dD = mD[b] - mD[a]; if (dD * dL < 0 && Math.abs(dD) >= 1) rev++; }
+  }
+  return sig ? rev / sig : 0;
+}
+
+// ---------------- 显示
+const VIR = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]];
+function chShow(v) {
+  if (!chM) return;
+  chView = v || chView; selFrame = 'chdr'; follow = false;
+  const { w, h, S } = chM, N = w * h;
+  if (!chDisp) { chTone(); chRender(); }
+  const paint = (fn) => {                              // 彩色视图：直接画到大图，不走原始值显示
+    hist = null; srcUrl = 'chdr:' + chView;
+    viewOverride = () => {
+      const cv = $('#view'); cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d'), im = ctx.createImageData(w, h); fn(im.data); ctx.putImageData(im, 0, 0);
+      if (chView === 'cmp') {
+        const x = Math.round(chSplit * w); ctx.fillStyle = '#fff'; ctx.fillRect(x - 1, 0, 3, h);
+        ctx.font = '22px sans-serif'; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+        const t1 = `单帧最好：${p4(S[chM.best].ms)} ms`, t2 = 'Claude 高动态';
+        ctx.strokeText(t1, 12, 30); ctx.fillText(t1, 12, 30); ctx.textAlign = 'right'; ctx.strokeText(t2, w - 12, 30); ctx.fillText(t2, w - 12, 30); ctx.textAlign = 'left';
+      }
+      drawHist();
+    };
+    renderView();
+  };
+  const tn = ch.tone;
+  if (chView === 'res') {
+    srcUrl = 'chdr:res:' + JSON.stringify(tn); setSrc(chDisp, w, h, 'raw8');
+    $('#fmeta').textContent = `Claude 高动态结果 · ${S.length} 帧合成 · 底层压到 ${tn.comp} 档、细节 ×${tn.det}、微纹理 ×${tn.fine}、降噪 ${tn.nr} · 直方图是显示值 0～255`;
+  } else if (chView === 'rad') {
+    srcUrl = 'chdr:rad:' + ch.id; setSrc(chM.R, w, h, 'float');
+    $('#fmeta').textContent = `辐射度（线性，单位 = 最长一帧 ${p4(S[S.length - 1].ms)} ms 的 DN，已减黑电平）· 0～${p4(srcMax)} · 直方图横轴对数，可用"原始值范围"挑一段看`;
+  } else if (chView === 'cmp') {
+    paint(p => { const xs = Math.round(chSplit * w); for (let i = 0, j = 0; i < N; i++, j += 4) { const v = (i % w) < xs ? chRef[i] : chDisp[i]; p[j] = p[j + 1] = p[j + 2] = v; p[j + 3] = 255; } });
+    $('#fmeta').textContent = `对比：左 = 最好的单帧（${p4(S[chM.best].ms)} ms，按普通相机显示），右 = Claude 高动态。在大图上按住左右拖动分界线。`;
+  } else if (chView === 'src') {
+    const rgb = BKC.map(c => [1, 3, 5].map(k => parseInt(c.slice(k, k + 2), 16)));
+    paint(p => { for (let i = 0, j = 0; i < N; i++, j += 4) { const s = chM.src[i], c = s === 255 ? [255, 255, 255] : rgb[s % rgb.length]; p[j] = c[0]; p[j + 1] = c[1]; p[j + 2] = c[2]; p[j + 3] = 255; } });
+    $('#fmeta').textContent = '来源：每个像素按权重最大的那一帧上色（颜色见"① 曝光序列"），白色 = 所有帧都饱和。' +
+      S.map((f, j) => `${p4(f.ms)} ms ${pc(f.win, 1)}`).join(' · ');
+  } else if (chView === 'snr') {
+    paint(p => {
+      for (let i = 0, j = 0; i < N; i++, j += 4) {
+        const db = chM.snr[i] > 0 ? 20 * Math.log10(chM.snr[i]) : -1;
+        if (db < 0) { p[j] = p[j + 1] = p[j + 2] = 0; } else {
+          const x = Math.min(1, db / 40) * 4, k = Math.min(3, Math.floor(x)), f = x - k, a = VIR[k], b = VIR[k + 1];
+          p[j] = a[0] + (b[0] - a[0]) * f; p[j + 1] = a[1] + (b[1] - a[1]) * f; p[j + 2] = a[2] + (b[2] - a[2]) * f;
+        }
+        p[j + 3] = 255;
+      }
+    });
+    $('#fmeta').textContent = '信噪比：紫 0 dB → 蓝 10 dB → 青 20 dB → 绿 30 dB → 黄 ≥ 40 dB；黑 = 信号 ≤ 0（全是噪声）。20 dB = 信号是噪声的 10 倍。';
+  }
+  document.querySelectorAll('#chViews button').forEach(b => b.classList.toggle('on', b.dataset.v === chView));
+}
+// 对比视图：在大图上按住拖动分界线
+$('#view').addEventListener('pointerdown', (e) => {
+  if (selFrame !== 'chdr' || chView !== 'cmp') return;
+  const mv = (ev) => { const r = $('#view').getBoundingClientRect(); chSplit = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)); renderView(); };
+  mv(e); $('#view').setPointerCapture(e.pointerId);
+  $('#view').onpointermove = mv; $('#view').onpointerup = () => { $('#view').onpointermove = null; };
+});
+
+// ---------------- 界面
+function chInfo(t) { $('#chInfo').textContent = t; }
+function chRender() {
+  $('#chGo').disabled = chBusy; $('#chStopB').disabled = !chBusy; $('#chFromHd').disabled = chBusy;
+  if (!ch) { $('#chFrames tbody').innerHTML = ''; $('#chStats').innerHTML = ''; return; }
+  if (!chBusy) chInfo(`会话 ${ch.id} · ${ch.frames.length} 帧${ch.note ? ' · ' + ch.note : ''}`);
+  const S = chM ? chM.S : [];
+  $('#chFrames tbody').innerHTML = S.map((f, j) => `<tr>
+    <td class="v"><span class="sw" style="background:${bkColor(j)}"></span>${j + 1}</td><td>${f.role}</td><td class="v">${p4(f.ms)}</td>
+    <td class="v">${f.fit ? `×${f.fit.toFixed(3)}` : '—'}${j ? `（寄存器 ×${(f.tr / S[j - 1].tr).toFixed(3)}）` : ''}</td>
+    <td class="v">${pc(f.st.sat, 3)}</td><td class="v">${pc(f.st.dark, 1)}</td><td class="v">${pc(f.st.good, 1)}</td><td class="v">${pc(f.st.snr10, 1)}</td>
+    <td class="v">${pc(f.win, 1)}</td><td class="x">${f.file.split('/').pop()}</td></tr>`).join('');
+  if (!chM) { $('#chStats').innerHTML = ''; return; }
+  const s = chM.st, cell = (v, t) => `<div><b>${v}</b><span>${t}</span></div>`;
+  $('#chStats').innerHTML = [
+    cell(`${s.dr.toFixed(1)} 档`, `能记录的动态范围（单帧 ${s.dr1.toFixed(1)} 档 + 曝光跨度 ${s.span.toFixed(1)} 档）`),
+    cell(pc(s.snr10, 1), `信噪比 ≥ 10 的像素（最好的单帧 ${pc(s.snr10b, 1)}，第 ${s.best + 1} 帧）`),
+    cell(s.scene == null ? '—' : `${s.scene.toFixed(1)} 档`, '场景亮暗跨度（第 0.1～99.9 百分位）'),
+    cell(s.b.toFixed(1), '黑电平 DN（实测）'),
+    cell(`σ ${s.sig.toFixed(2)} · k ${s.k.toFixed(3)}`, '噪声：读出噪声 DN · 每个电子的 DN（实测）'),
+    cell(pc(s.clip, 3), '所有帧都饱和的像素'),
+    cell(pc(s.moved, 3), '帧间不一致的像素（运动或灯光变化，已改用单帧）'),
+    cell(s.hot, '热像素（孤立亮点，已换成邻域中位数）'),
+  ].join('') + (chResM && chRefM ? [
+    cell(`${pc(chResM.vis, 1)}`, `可见细节（单帧 ${pc(chRefM.vis, 1)}）：有真实结构的地方，显示出来看得见的比例`),
+    cell(chResM.cor.toFixed(3), `结构一致（单帧 ${chRefM.cor.toFixed(3)}）：显示与真实亮度的局部相关，光晕会让它变低`),
+    cell(chResM.noise.toFixed(2), `暗处显示噪声 灰度级（单帧 ${chRefM.noise.toFixed(2)}）：信噪比 < 10 处的细碎起伏`),
+    cell(pc(chResM.clip, 2), `显示裁切成纯黑/纯白（单帧 ${pc(chRefM.clip, 2)}）`),
+    cell(pc(chResM.rev, 3), `梯度反转（单帧 ${pc(chRefM.rev, 3)}）：真实亮的一侧反而显示得暗，光晕的特征`),
+  ].join('') : '') + `<div style="grid-column:1/-1;background:none;padding:0" class="meta">标定：${s.calNote}</div>`;
+}
+let chT = 0;
+function chToneChanged() {
+  CH_UI.forEach(([k]) => { ch.tone[k] = +$('#ch_' + k).value; $('#ch_' + k + 'v').textContent = ch.tone[k]; });
+  clearTimeout(chT); chT = setTimeout(() => { chDisp = null; chShow(chView === 'rad' || chView === 'src' || chView === 'snr' ? 'res' : chView); chRender(); }, 30);
+  clearTimeout(chToneChanged.s); chToneChanged.s = setTimeout(chSave, 1000);
+}
+function chSyncSliders() { CH_UI.forEach(([k]) => { $('#ch_' + k).value = ch.tone[k]; $('#ch_' + k + 'v').textContent = ch.tone[k]; }); }
+async function chUpload() {
+  if (!chM) return;
+  const { w, h, R } = chM, base = `${ch.id}_chdr_${w}x${h}`, d8 = Uint8Array.from(chDisp, x => Math.round(x));
+  const up = async (name, body) => (await fetch('/api/upload?name=' + name, { method: 'POST', body })).json();
+  const a = await up(base + '_HDR.tif', R.buffer), b = await up(base + '.png', d8.buffer);
+  chInfo(a.ok && b.ok ? `已保存 ${a.result}（辐射度，32 位浮点）和 ${b.result}（结果，8 位）；可在"历史图像"里打开` : '保存失败：' + (a.error || b.error));
+}
+function chDownload() {
+  if (!chDisp) return;
+  const { w, h } = chM, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d'), im = ctx.createImageData(w, h);
+  for (let i = 0, j = 0; i < chDisp.length; i++, j += 4) { im.data[j] = im.data[j + 1] = im.data[j + 2] = chDisp[i]; im.data[j + 3] = 255; }
+  ctx.putImageData(im, 0, 0);
+  const a = document.createElement('a'); a.download = `${ch.id}_claude_hdr.png`; a.href = cv.toDataURL('image/png'); a.click();
+}
+$('#chSliders').innerHTML = CH_UI.map(([k, t, mn, mx, st, u]) =>
+  `<label>${t} <input id="ch_${k}" type="range" min="${mn}" max="${mx}" step="${st}" value="${CH_DEF[k]}"> <span class="meta" id="ch_${k}v">${CH_DEF[k]}</span> ${u}</label>`).join('');
+CH_UI.forEach(([k]) => $('#ch_' + k).oninput = () => ch && chM && chToneChanged());
+$('#chAutoB').onclick = chAuto;
+$('#chReset').onclick = () => { if (ch) { ch.tone = { ...CH_DEF }; chSyncSliders(); chToneChanged(); } };
+$('#chGo').onclick = chRun;
+$('#chStopB').onclick = () => { chStop = true; chInfo('当前这一帧拍完就停…'); };
+$('#chFromHd').onclick = chFromHd;
+$('#chSess').onchange = (e) => chLoad(e.target.value);
+$('#chUp').onclick = chUpload;
+$('#chDl').onclick = chDownload;
+document.querySelectorAll('#chViews button').forEach(b => b.onclick = () => chShow(b.dataset.v));
+var chOpened;                                          // var：标签页初始化时可能先于这一行被调用（那时是 undefined）
+function chOnTab() {                                   // 第一次打开这个标签时才载入最近一次会话（每帧要读回，较慢）
+  if (chOpened) return; chOpened = true;
+  chList().then(ls => { if (ls.length && !ch) chLoad(ls[0].id); });
+}
+
+// ---------------------------------------------------------------- 历史图像（captures/ 里的文件，按拍摄分组，新的在前）
+let histFiles = [];
+async function histLoad() {
+  try { histFiles = await (await fetch('/api/captures')).json(); } catch { histFiles = []; }
+  histRender();
+}
+function histRender() {
+  const q = $('#histQ').value.trim(), fs = histFiles.filter(f => !q || f.name.includes(q)), groups = [];
+  // 文件名 = 存盘时刻_s拍摄序号_…：同一次拍摄的各帧存盘时刻不同，按"相邻且拍摄序号相同"归为一组；组名用最早一个文件的前缀
+  let gs = null;
+  for (const f of fs.slice().sort((x, y) => x.name < y.name ? 1 : -1)) {
+    const m = f.name.match(/^(\d{8}_\d{6})_s(\d+)_/);
+    if (!m || m[2] !== gs) groups.push([null, []]);
+    gs = m ? m[2] : null;
+    const g = groups[groups.length - 1]; g[0] = m ? m[1] + '_s' + m[2] : f.name; g[1].push(f);
+  }
+  $('#histInfo').textContent = `${fs.length} 个文件，${groups.length} 次拍摄`;
+  const lab = (n) => (n.match(/_(f\d+)_/) || n.match(/_(c?hdr)_/) || [, '文件'])[1] + (n.endsWith('.tif') ? ' 合成' : '');
+  $('#histList').innerHTML = groups.map(([k, g]) => {
+    const t = k.match(/^(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)(\d\d)/);
+    return `<div class="row" style="margin:2px 0"><span class="meta" style="min-width:150px">${t ? `${t[1]}-${t[2]}-${t[3]} ${t[4]}:${t[5]}:${t[6]}` : ''} ${(k.match(/_s(\d+)$/) || [, ''])[1] ? '第 ' + k.match(/_s(\d+)$/)[1] + ' 次' : ''}</span>` +
+      g.slice().sort((a, b) => a.name < b.name ? -1 : 1).map(f => `<button class="sec${srcUrl === '/captures/' + f.name ? ' on' : ''}" style="padding:2px 8px;font-size:12px" title="${f.name}" onclick="histOpen('${f.name}')">${lab(f.name)}</button>`).join('') + '</div>';
+  }).join('');
+}
+function histOpen(name) {
+  const url = '/captures/' + name;
+  follow = false; selFrame = 'hist';
+  loadRaw(url); $('#dl').href = url; $('#dl').download = name;
+  const m = name.match(/_(\d+)x(\d+)(?:_(RAW\d+|HDR))?\.(png|tif)$/);
+  $('#fmeta').textContent = `历史图像 · ${m ? `${m[1]}×${m[2]} ${m[3] || 'RAW8'}` : ''} · captures/${name}`;
+  histRender(); renderShots();
+}
+$('#histRef').onclick = histLoad;
+$('#histQ').oninput = histRender;
+
+// ---------------------------------------------------------------- 轮询
+function pill(el, text, cls) { el.textContent = text; el.className = 'pill ' + (cls || ''); }
+let reconnecting = false;                             // 串口断开时点状态标签，尝试重连一次（同"设置"里的重连串口）
+$('#conn').onclick = async () => {
+  if (reconnecting || !$('#conn').textContent.startsWith('串口断开')) return;
+  reconnecting = true; pill($('#conn'), '重连中…', '');
+  try {
+    const j = await act('reconnect');
+    if (!j.ok) alert(/超时/.test(j.error) ? `串口已打开，但 FPGA 没有应答（${j.error}）。板子断过电的话，比特流已丢失，请到"设置"里点"烧录 SRAM"。` : '重连失败：' + j.error);
+  }
+  catch (e) { alert('重连失败：' + e); }
+  reconnecting = false; refresh();
+};
+async function refresh() {
+  let s;
+  try { s = await (await fetch('/api/state')).json(); } catch { pill($('#conn'), '服务未连接', 'bad'); return; }
+  if (!reconnecting) pill($('#conn'), s.connected ? '串口已连接' : '串口断开（点击重连）', s.connected ? 'ok' : 'bad');
+  $('#conn').style.cursor = s.connected ? '' : 'pointer';
+  const chip = s.chip || ((rv(0x300A) << 8 | rv(0x300B)) === 0x9281 ? 'OV9281 (0x9281)' : null);
+  pill($('#chip'), chip || '相机未识别', chip ? 'ok' : '');
+  pill($('#busy'), s.busy ? '拍摄中…' : '空闲', s.busy ? 'ok' : '');
+  if (s.progress) { $('#prog').max = s.progress[1] || 1; $('#prog').value = s.progress[0];
+    $('#pmeta').textContent = s.busy && s.progress[1] ? `传回中：${s.progress[0]} / ${s.progress[1]} 行` : ''; }
+  $('#shot1').disabled = $('#shot20').disabled = $('#shotHdr').disabled = !!s.busy;
+  $('#hdStep').disabled = !!s.busy || hdBusy || !!(hd && hd.done);
+  $('#chGo').disabled = !!s.busy || chBusy;
+  const st = s.status;
+  if (st) {
+    pill($('#clk'), `MIPI 时钟 ${(st.sclk_khz * 2 / 1000).toFixed(1)} MHz`, st.sclk_khz > 1000 ? 'ok' : 'bad');
+    $('#io0').checked = st.io0; $('#io1').checked = st.io1;
+    document.querySelectorAll('.opt').forEach(c => c.checked = !!(st.opts & +c.value));
+    if (document.activeElement !== $('#dl0') && document.activeElement !== $('#dl1')) { $('#dl0').value = st.delay0; $('#dl1').value = st.delay1; }
+    const rs = st.opts >> 5, rt = {4: 3.5, 0: 4, 5: 4.5, 1: 5, 6: 5.5, 2: 6, 7: 6.5, 3: 7}[rs];
+    if (s.sdram) $('#sdres').textContent = s.sdram.rsel == null ? '自检失败：所有采样点都有错' :
+      `已校准：采样点 ${rt} 拍；各点错误数 ${s.sdram.errs.join(' / ')}`;
+    renderDiag(st);
+    pill($('#fps'), rate.fs != null ? `帧率 ${rate.fs.toFixed(1)} fps` : '帧率 —', rate.fs > 0 ? 'ok' : '');
+    updHints();
+  }
+  shots = s.shots || [];
+  if (s.frame_id !== lastFrame) {
+    lastFrame = s.frame_id;
+    const last = shots[shots.length - 1];
+    if (last && follow) {
+      if (last.merged) select(last.id, 'm', true);
+      else { const done = last.frames.filter(f => f.file); if (done.length) select(last.id, done[done.length - 1].i, true); }
+    }
+  }
+  renderShots();
+  const log = $('#log'); const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  log.textContent = s.log.join('\n'); if (atEnd) log.scrollTop = log.scrollHeight;
+}
+async function pollStatus() {
+  if ($('#auto').checked) {
+    const s = await fetch('/api/state').then(r => r.json()).catch(() => null);   // 服务没开时不报错
+    if (s && s.connected && !s.busy) {
+      const j = await fetch('/api/cmd', { method: 'POST', body: JSON.stringify({ action: 'status' }) }).then(r => r.json()).catch(() => null);
+      if (j && j.ok) calcRate(j.result);
+    }
+  }
+}
+setInterval(refresh, 500); refresh();
+setInterval(pollStatus, 1000);
+fetch('/api/state').then(r => r.json()).then(s => { if (s.connected) readAll(); }).catch(() => {});
+</script>
+</body>
+</html>

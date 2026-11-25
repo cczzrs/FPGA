@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="从整片 FPGA 逐层进入逻辑块、Slice 与等效逻辑门，对照两种架构如何完成同一次运算。" />
+    <title>FPGA 三维结构与电路演示</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%2328577a' d='M2 2h12v12H2z'/%3E%3Cpath fill='%23ffb020' d='M6 6h4v4H6z'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="project-switch" href="/" aria-label="返回 Fabric Atlas 首页">Fabric Atlas <span>结构工作台</span></a>
+      <h1>FPGA 三维结构与电路</h1>
+      <nav class="choices arches" id="arches" aria-label="架构"></nav>
+      <nav class="choices examples" id="examples" aria-label="示例"></nav>
+    </header>
+
+    <main class="app">
+      <section class="stage" aria-label="三维结构">
+        <div class="pathbar">
+          <button type="button" id="back" class="small">返回</button>
+          <nav class="crumbs" aria-label="层级路径"><ol id="crumbs"></ol></nav>
+        </div>
+
+        <div class="viewport" id="viewport">
+          <div class="labels" id="labels"></div>
+          <p class="hud badge" id="badge"></p>
+          <button type="button" class="hud reset small" id="reset">复位视角</button>
+          <ul class="hud legend" id="legend" aria-label="连线颜色">
+            <li data-value="1">1</li>
+            <li data-value="0">0</li>
+            <li data-value="pending">未到达</li>
+            <li data-value="unused">未使用</li>
+          </ul>
+          <button type="button" class="hud locate small" id="locate" hidden></button>
+          <p class="notice" id="notice" role="alert"></p>
+        </div>
+
+        <div class="transport" role="group" aria-label="播放控制">
+          <div class="progress" aria-hidden="true"><i id="progress"></i></div>
+          <div class="step-title">
+            <strong id="stage-name"></strong>
+            <span id="stage-count"></span>
+          </div>
+          <div class="buttons">
+            <button type="button" id="play" class="primary">播放</button>
+            <button type="button" id="step">单步</button>
+            <button type="button" id="replay">重播</button>
+            <button type="button" id="clock" hidden></button>
+            <label class="speed"><span>速度</span> <select id="speed"></select></label>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="电路数据">
+        <section aria-labelledby="operate-title">
+          <h2 id="operate-title"></h2>
+          <div id="inputs"></div>
+          <div id="readout"></div>
+        </section>
+        <section aria-labelledby="stage-title">
+          <h2 id="stage-title">当前阶段</h2>
+          <p id="stage-text" aria-live="polite"></p>
+          <p id="stage-hardware" class="muted"></p>
+        </section>
+        <section id="lut-section" aria-labelledby="lut-title" hidden>
+          <h2 id="lut-title">LUT 地址与分支</h2>
+          <div id="lut"></div>
+        </section>
+        <section aria-labelledby="compare-title">
+          <h2 id="compare-title">两套架构对照</h2>
+          <div id="compare"></div>
+        </section>
+        <section aria-labelledby="tree-title">
+          <h2 id="tree-title">层级树</h2>
+          <nav id="tree" aria-label="层级树"></nav>
+        </section>
+        <section aria-labelledby="ports-title">
+          <h2 id="ports-title">当前模块端口</h2>
+          <p id="info" class="info" role="status"></p>
+          <div id="ports"></div>
+        </section>
+        <section class="basis" aria-labelledby="basis-title">
+          <h2 id="basis-title">依据与边界</h2>
+          <details>
+            <summary>展开来源与简化说明</summary>
+            <ul id="sources"></ul>
+            <p>芯片总览是架构示意，不对应具体器件的坐标。门层是功能等效电路，不是晶体管实现。演示只算逻辑值，不模拟延迟与电气特性。</p>
+            <p>两套映射都是示例映射。Yosys 默认不会把 4 位加法推断成 ECP5 进位链，所以这里展示显式例化 CCU2C 的电路。</p>
+            <p>图中只画本例选中的配置选择器输入，并省略 AMD 5FF 前的输入选择器。LUT 中未布线的地址端接常量 1。</p>
+          </details>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
